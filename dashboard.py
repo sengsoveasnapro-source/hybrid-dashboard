@@ -4,17 +4,14 @@ import pandas as pd
 from supabase import create_client, Client
 
 # ==========================================
-# កន្លែងភ្ជាប់ទៅកាន់ Supabase
+# ភ្ជាប់ទៅកាន់ Supabase
 # ==========================================
 SUPABASE_URL = "https://bqozwahxwhnpnasixxps.supabase.co"
 SUPABASE_KEY = "sb_publishable_haSMxbZUbxaV65oU4QaOQQ_HrwTS3Tl" 
-
-# បង្កើតភ្នាក់ងារភ្ជាប់ទៅ Supabase ផ្ទាល់
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 st.set_page_config(page_title="Hybrid Control Center", page_icon="⚡", layout="wide")
 
-# រចនាពណ៌ផ្ទៃខាងក្រោយ (Cyberpunk Theme)
 st.markdown("""
     <style>
     .stApp { background-color: #060a0f; color: #a0b2c6; }
@@ -22,122 +19,125 @@ st.markdown("""
     div[data-testid="stMetricValue"] { color: #00ffa3; font-size: 35px; font-weight: bold; }
     div[data-testid="stMetricLabel"] { color: #ffaa00; font-size: 15px; font-weight: bold; }
     .dataframe { border: 1px solid #1a2639; }
+    .stAlert { background-color: #1a2639; border: 1px solid #ffaa00; }
     </style>
 """, unsafe_allow_html=True)
 
 st.title("⚡ MASTER CONTROL CENTER")
 st.write("---")
 
-def fetch_data():
-    endpoint = f"{SUPABASE_URL}/rest/v1/bot_status?select=*"
-    headers = {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}"
-    }
-    try:
-        res = requests.get(endpoint, headers=headers, timeout=5)
-        if res.status_code == 200:
-            return res.json()
-    except:
-        return []
-    return []
-
-data = fetch_data()
-
-if data:
-    df = pd.DataFrame(data)
-    
-    # បូកសរុបទឹកលុយពីគ្រប់ VPS ទាំងអស់
-    total_bal = df['balance'].sum()
-    total_eq = df['equity'].sum()
-    total_prof = df['profit'].sum()
-    
-    # បង្ហាញតួលេខធំៗខាងលើ
-    col1, col2, col3 = st.columns(3)
-    col1.metric("💰 NET BALANCE", f"${total_bal:,.2f}")
-    col2.metric("🛡️ LIVE EQUITY", f"${total_eq:,.2f}")
-    col3.metric("📈 FLOATING P/L", f"${total_prof:,.2f}")
-    
-    st.write("---")
-    st.subheader("💻 CONNECTED SYSTEMS (LIVE STATUS)")
-    
-    # រៀបចំតារាងឱ្យស្អាត
-    df_display = df[['vps_name', 'status', 'balance', 'equity', 'profit', 'total_pos', 'today_lots', 'last_updated']]
-    df_display.columns = ['VPS Name', 'Status', 'Balance ($)', 'Equity ($)', 'Profit ($)', 'Open Nodes', 'Today Volume', 'Last Sync']
-    
-    # Format កាលបរិច្ឆេទឱ្យស្រួលមើល
-    df_display['Last Sync'] = pd.to_datetime(df_display['Last Sync']).dt.strftime('%Y-%m-%d %H:%M:%S')
-    
-    st.dataframe(df_display, use_container_width=True, hide_index=True)
-else:
-    st.warning("⚠️ No signals detected. Waiting for systems to come online...")
-
-# ប៊ូតុង Refresh
-st.write("")
-colA, colB, colC = st.columns([1, 2, 1])
-with colB:
-    if st.button("🔄 REFRESH DATA", use_container_width=True):
-        st.rerun()
-
-# ==========================================
-# ប្រព័ន្ធគ្រប់គ្រងភ្ញៀវ (CLIENT LICENSE MANAGEMENT)
-# ==========================================
-st.markdown("---")
-st.header("👥 ប្រព័ន្ធគ្រប់គ្រងអតិថិជន (Client Management)")
-
-# ទាញយកទិន្នន័យភ្ញៀវពី Supabase មកបង្ហាញ
+# ទាញយកទិន្នន័យពី Database ទាំង ២
 try:
     res = supabase.table("mt5_licenses").select("*").execute()
-    if res.data:
-        licenses_df = pd.DataFrame(res.data)
-        st.dataframe(
-            licenses_df[['account_number', 'client_name', 'is_active', 'created_at']], 
-            use_container_width=True
-        )
-    else:
-        st.info("មិនទាន់មានទិន្នន័យភ្ញៀវនៅឡើយទេ។")
-        licenses_df = None
-except Exception as e:
-    st.error(f"មិនអាចទាញយកទិន្នន័យបានទេ៖ {e}")
-    licenses_df = None
+    licenses_df = pd.DataFrame(res.data) if res.data else pd.DataFrame()
+except:
+    licenses_df = pd.DataFrame()
 
-# បង្កើតជួរឈរពីរ ដើម្បីបែងចែកផ្ទាំង "បន្ថែមភ្ញៀវ" និង "បិទ/បើកសិទ្ធិ"
-col1, col2 = st.columns(2)
+def fetch_live_data():
+    endpoint = f"{SUPABASE_URL}/rest/v1/bot_status?select=*"
+    headers = {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+    try:
+        r = requests.get(endpoint, headers=headers, timeout=5)
+        if r.status_code == 200: return r.json()
+    except: return []
+    return []
 
-# ផ្ទាំងទី ១៖ សម្រាប់បន្ថែមភ្ញៀវថ្មី
-with col1:
-    st.subheader("➕ បន្ថែមអតិថិជនថ្មី")
-    with st.form("add_client_form"):
-        new_acc = st.text_input("លេខគណនី MT5 (Account Number)")
-        new_name = st.text_input("ឈ្មោះចំណាំ (Client Name)")
-        submit_add = st.form_submit_button("✅ អនុម័តសិទ្ធិ (Approve)")
-        
-        if submit_add and new_acc and new_name:
-            try:
-                supabase.table("mt5_licenses").insert({
-                    "account_number": new_acc, 
-                    "client_name": new_name, 
-                    "is_active": True
-                }).execute()
-                st.success(f"បានបន្ថែម {new_name} ({new_acc}) ដោយជោគជ័យ!")
-                st.rerun() # Refresh ទំព័រដើម្បីបង្ហាញទិន្នន័យថ្មី
-            except Exception as e:
-                st.error("លេខគណនីនេះប្រហែលជាមានរួចហើយ ឬមានបញ្ហាប្រព័ន្ធ។")
+live_df = pd.DataFrame(fetch_live_data())
 
-# ផ្ទាំងទី ២៖ សម្រាប់បិទ ឬបើកសិទ្ធិភ្ញៀវចាស់
-with col2:
-    st.subheader("⚙️ គ្រប់គ្រងស្ថានភាព (Status)")
-    if licenses_df is not None and not licenses_df.empty:
-        with st.form("update_client_form"):
-            target_acc = st.selectbox("ជ្រើសរើសលេខគណនី", licenses_df['account_number'])
-            new_status = st.radio("កំណត់ស្ថានភាពសិទ្ធិ៖", ["Active (អនុញ្ញាត)", "Revoked (បិទសិទ្ធិ)"])
-            submit_update = st.form_submit_button("🔄 ធ្វើបច្ចុប្បន្នភាព")
-            
-            if submit_update:
-                is_active_val = True if new_status == "Active (អនុញ្ញាត)" else False
-                supabase.table("mt5_licenses").update({"is_active": is_active_val}).eq("account_number", target_acc).execute()
-                st.success(f"បានប្តូរស្ថានភាពសម្រាប់គណនី {target_acc} រួចរាល់!")
+# ==========================================
+# ផ្នែកទី ១៖ សំណើសុំសិទ្ធិថ្មី (AUTO-REGISTRATION)
+# ==========================================
+st.subheader("🔔 សំណើសុំសិទ្ធិថ្មី (Pending Approvals)")
+
+if not licenses_df.empty and 'is_active' in licenses_df.columns:
+    pending_df = licenses_df[licenses_df['is_active'] == False]
+    
+    if not pending_df.empty:
+        for index, row in pending_df.iterrows():
+            acc = row.get('account_number', 'Unknown')
+            col1, col2 = st.columns([4, 1])
+            col1.warning(f"⚠️ មានសំណើថ្មីពីគណនីលេខ៖ **{acc}** (កំពុងរង់ចាំការអនុម័តពីបង)")
+            if col2.button(f"✅ អនុម័ត (Approve)", key=f"approve_{acc}"):
+                # ពេលចុច Approve វានឹងកត់ត្រាចូលប្រព័ន្ធភ្លាម
+                supabase.table("mt5_licenses").update({"is_active": True}).eq("account_number", acc).execute()
                 st.rerun()
+    else:
+        st.success("✅ មិនមានសំណើថ្មីទេបច្ចុប្បន្ន។")
+else:
+    st.success("✅ មិនមានសំណើថ្មីទេបច្ចុប្បន្ន។")
 
-st.markdown("---")
-st.caption("DEV CONTACT: 0967205522 | Hybrid Control Center v1.0")
+st.write("---")
+
+# ==========================================
+# ផ្នែកទី ២៖ តារាងរួមបញ្ចូលគ្នា (UNIFIED DASHBOARD)
+# ==========================================
+st.subheader("💻 ប្រព័ន្ធកំពុងដំណើរការ (UNIFIED LIVE SYSTEMS)")
+
+if not licenses_df.empty and 'is_active' in licenses_df.columns:
+    active_df = licenses_df[licenses_df['is_active'] == True]
+    
+    if not active_df.empty:
+        display_list = []
+        total_bal, total_eq, total_prof = 0.0, 0.0, 0.0
+        
+        for index, row in active_df.iterrows():
+            acc = str(row.get('account_number', ''))
+            name = row.get('client_name', 'Auto Registered')
+            
+            bal, eq, prof, status, last_sync = 0.0, 0.0, 0.0, "OFFLINE (គ្មានសេវា)", "-"
+            # ផ្គូផ្គងលេខ Account ជាមួយតារាងលុយ (Bot Status)
+            if not live_df.empty and 'vps_name' in live_df.columns:
+                match = live_df[live_df['vps_name'].astype(str) == acc]
+                if not match.empty:
+                    bal = float(match.iloc[0].get('balance', 0))
+                    eq = float(match.iloc[0].get('equity', 0))
+                    prof = float(match.iloc[0].get('profit', 0))
+                    status = str(match.iloc[0].get('status', 'ONLINE'))
+                    last_sync = str(match.iloc[0].get('last_updated', '-'))
+            
+            total_bal += bal; total_eq += eq; total_prof += prof
+            
+            display_list.append({
+                "លេខគណនី (ID)": acc,
+                "ឈ្មោះភ្ញៀវ": name,
+                "ស្ថានភាព (Status)": status,
+                "លុយក្នុងកុង (Balance)": f"${bal:,.2f}",
+                "ប្រាក់ចំណេញ (Profit)": f"${prof:,.2f}",
+                "អាប់ដេតចុងក្រោយ": last_sync
+            })
+            
+        colA, colB, colC = st.columns(3)
+        colA.metric("💰 ទឹកប្រាក់សរុប (NET BALANCE)", f"${total_bal:,.2f}")
+        colB.metric("🛡️ សមតុល្យរួម (LIVE EQUITY)", f"${total_eq:,.2f}")
+        colC.metric("📈 ប្រាក់ចំណេញរួម (TOTAL P/L)", f"${total_prof:,.2f}")
+        
+        st.write("")
+        st.dataframe(pd.DataFrame(display_list), use_container_width=True, hide_index=True)
+        
+        st.write("")
+        with st.expander("⚙️ កែប្រែឈ្មោះ ឬ បិទសិទ្ធិ (Manage Clients)"):
+            c1, c2 = st.columns(2)
+            with c1:
+                target_acc = st.selectbox("ជ្រើសរើសលេខគណនី", active_df['account_number'])
+                new_name = st.text_input("ប្តូរឈ្មោះចំណាំ (ជម្រើស)", placeholder="ឈ្មោះថ្មី...")
+            with c2:
+                st.write(""); st.write("")
+                if st.button("🚫 បិទសិទ្ធិ (Revoke Access)", use_container_width=True):
+                    supabase.table("mt5_licenses").update({"is_active": False}).eq("account_number", target_acc).execute()
+                    st.success(f"បានបិទសិទ្ធិគណនី {target_acc} រួចរាល់!")
+                    st.rerun()
+                if st.button("📝 រក្សាទុកឈ្មោះថ្មី", use_container_width=True) and new_name:
+                    supabase.table("mt5_licenses").update({"client_name": new_name}).eq("account_number", target_acc).execute()
+                    st.success(f"បានប្តូរឈ្មោះទៅជា {new_name} រួចរាល់!")
+                    st.rerun()
+
+    else:
+        st.info("មិនទាន់មានគណនីណាត្រូវបានអនុញ្ញាតនៅឡើយទេ។")
+else:
+    st.info("ប្រព័ន្ធកំពុងរង់ចាំការតភ្ជាប់...")
+
+st.write("---")
+col_R1, col_R2, col_R3 = st.columns([1, 2, 1])
+with col_R2:
+    if st.button("🔄 REFRESH DATA", use_container_width=True):
+        st.rerun()
