@@ -1,12 +1,16 @@
 import streamlit as st
 import requests
 import pandas as pd
+from supabase import create_client, Client
 
 # ==========================================
 # កន្លែងភ្ជាប់ទៅកាន់ Supabase
 # ==========================================
 SUPABASE_URL = "https://bqozwahxwhnpnasixxps.supabase.co"
 SUPABASE_KEY = "sb_publishable_haSMxbZUbxaV65oU4QaOQQ_HrwTS3Tl" 
+
+# បង្កើតភ្នាក់ងារភ្ជាប់ទៅ Supabase ផ្ទាល់
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 st.set_page_config(page_title="Hybrid Control Center", page_icon="⚡", layout="wide")
 
@@ -74,6 +78,7 @@ colA, colB, colC = st.columns([1, 2, 1])
 with colB:
     if st.button("🔄 REFRESH DATA", use_container_width=True):
         st.rerun()
+
 # ==========================================
 # ប្រព័ន្ធគ្រប់គ្រងភ្ញៀវ (CLIENT LICENSE MANAGEMENT)
 # ==========================================
@@ -84,7 +89,6 @@ st.header("👥 ប្រព័ន្ធគ្រប់គ្រងអតិថ�
 try:
     res = supabase.table("mt5_licenses").select("*").execute()
     if res.data:
-        import pandas as pd
         licenses_df = pd.DataFrame(res.data)
         st.dataframe(
             licenses_df[['account_number', 'client_name', 'is_active', 'created_at']], 
@@ -136,5 +140,4 @@ with col2:
                 st.rerun()
 
 st.markdown("---")
-st.caption("DEV CONTACT: 0967205522 | Hybrid Control Center v1.0")  
-      
+st.caption("DEV CONTACT: 0967205522 | Hybrid Control Center v1.0")
