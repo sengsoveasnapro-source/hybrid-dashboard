@@ -12,14 +12,29 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 st.set_page_config(page_title="Hybrid Control Center", page_icon="⚡", layout="wide")
 
+# ==========================================
+# រចនាពណ៌អក្សរ (NEON CYBERPUNK THEME)
+# ==========================================
 st.markdown("""
     <style>
-    .stApp { background-color: #060a0f; color: #a0b2c6; }
-    h1, h2, h3 { color: #00e5ff; font-weight: 900; }
-    div[data-testid="stMetricValue"] { color: #00ffa3; font-size: 35px; font-weight: bold; }
-    div[data-testid="stMetricLabel"] { color: #ffaa00; font-size: 15px; font-weight: bold; }
+    /* ផ្ទៃខាងក្រោយ និងអក្សរទូទៅ (ពណ៌សភ្លឺ មិនមែនខ្មៅទេ) */
+    .stApp { background-color: #060a0f; color: #E0E6ED; } 
+    
+    /* ពណ៌ចំណងជើង (Neon Cyan - ខៀវទឹកសមុទ្រភ្លឺ) */
+    h1, h2, h3 { color: #00E5FF !important; font-weight: 900; text-shadow: 0px 0px 10px rgba(0, 229, 255, 0.4); } 
+    
+    /* ពណ៌តួលេខលុយធំៗ (Neon Green - បៃតងភ្លឺ) */
+    div[data-testid="stMetricValue"] { color: #00FFA3 !important; font-size: 35px; font-weight: bold; text-shadow: 0px 0px 10px rgba(0, 255, 163, 0.4); } 
+    
+    /* ពណ៌ចំណងជើងផ្នែកលុយ (Neon Orange - លឿងទុំ) */
+    div[data-testid="stMetricLabel"] { color: #FFAA00 !important; font-size: 15px; font-weight: bold; } 
+    
+    /* បង្ខំអក្សរធម្មតាទាំងអស់ឱ្យចេញពណ៌ស ឬប្រផេះភ្លឺ ហាមខ្មៅ */
+    p, span, label, div { color: #E0E6ED; }
+    
+    /* ពណ៌បន្ទាត់តារាង */
     .dataframe { border: 1px solid #1a2639; }
-    .stAlert { background-color: #1a2639; border: 1px solid #ffaa00; }
+    .stAlert { background-color: #0A111E !important; border: 1px solid #00E5FF !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -58,7 +73,6 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
             col1, col2 = st.columns([4, 1])
             col1.warning(f"⚠️ មានសំណើថ្មីពីគណនីលេខ៖ **{acc}** (កំពុងរង់ចាំការអនុម័តពីបង)")
             if col2.button(f"✅ អនុម័ត (Approve)", key=f"approve_{acc}"):
-                # ពេលចុច Approve វានឹងកត់ត្រាចូលប្រព័ន្ធភ្លាម
                 supabase.table("mt5_licenses").update({"is_active": True}).eq("account_number", acc).execute()
                 st.rerun()
     else:
@@ -85,7 +99,7 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
             name = row.get('client_name', 'Auto Registered')
             
             bal, eq, prof, status, last_sync = 0.0, 0.0, 0.0, "OFFLINE (គ្មានសេវា)", "-"
-            # ផ្គូផ្គងលេខ Account ជាមួយតារាងលុយ (Bot Status)
+            
             if not live_df.empty and 'vps_name' in live_df.columns:
                 match = live_df[live_df['vps_name'].astype(str) == acc]
                 if not match.empty:
