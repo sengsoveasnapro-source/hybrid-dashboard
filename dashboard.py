@@ -21,6 +21,8 @@ st.markdown("""
     p, span, label, div { color: #E0E6ED; }
     .dataframe { border: 1px solid #1a2639; }
     .stAlert { background-color: #0A111E !important; border: 1px solid #00E5FF !important; }
+    /* Center align the Status column header and content */
+    th:nth-child(3), td:nth-child(3) { text-align: center; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -160,8 +162,8 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
                 st.error(f"បានបញ្ជូនបញ្ជា CLOSE ALL ទៅកាន់ {cmd_target} បន្ទាន់!")
 
         st.write("")
-        with st.expander("⚙️ កែប្រែឈ្មោះ ឬ បិទសិទ្ធិ (Manage Clients)"):
-            c1, c2 = st.columns(2)
+        with st.expander("⚙️ កែប្រែឈ្មោះ ឬ ដកគណនី (Manage Clients)"):
+            c1, c2, c3 = st.columns([2, 1, 1])
             with c1:
                 target_acc = st.selectbox("ជ្រើសរើសលេខគណនី", active_df['account_number'], key="manage_acc")
                 new_name = st.text_input("ប្តូរឈ្មោះចំណាំ (ជម្រើស)", placeholder="ឈ្មោះថ្មី...")
@@ -175,11 +177,66 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
                     supabase.table("mt5_licenses").update({"client_name": new_name}).eq("account_number", target_acc).execute()
                     st.success(f"បានប្តូរឈ្មោះទៅជា {new_name} រួចរាល់!")
                     st.rerun()
+            with c3:
+                st.write(""); st.write("")
+                if st.button("🗑️ លុបគណនី (Remove)", type="primary", use_container_width=True):
+                    supabase.table("mt5_licenses").delete().eq("account_number", target_acc).execute()
+                    st.error(f"បានលុបគណនី {target_acc} ចេញពីប្រព័ន្ធទាំងស្រុង!")
+                    st.rerun()
 
     else:
         st.info("មិនទាន់មានគណនីណាត្រូវបានអនុញ្ញាតនៅឡើយទេ។")
 else:
     st.info("ប្រព័ន្ធកំពុងរង់ចាំការតភ្ជាប់...")
+
+st.write("---")
+
+# ==========================================
+# 🔥 ផ្នែកថ្មី៖ ទាញយកទិន្នន័យពី GITHUB RELEASES
+# ==========================================
+st.subheader("📥 កំណែអាប់ដេតថ្មីៗ (System Updates)")
+
+@st.cache_data(ttl=3600) # Cache data for 1 hour to prevent hitting API limits
+def get_github_releases():
+    url = "https://api.github.com/repos/sengsoveasnapro-source/hybrid-dashboard/releases"
+    try:
+        response = requests.get(url, timeout=5)
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        return None
+    return None
+
+releases = get_github_releases()
+
+if releases:
+    for release in releases[:3]: # បង្ហាញត្រឹមតែ 3 Updates ចុងក្រោយ
+        version = release.get("tag_name", "Unknown Version")
+        title = release.get("name", "No Title")
+        date_str = release.get("published_at", "")
+        body = release.get("body", "មិនមានព័ត៌មានលម្អិតទេ")
+        
+        # កែទម្រង់កាលបរិច្ឆេទឱ្យងាយស្រួលមើល
+        pub_date = "Unknown Date"
+        if date_str:
+            try:
+                pub_date = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ").strftime("%d %b %Y - %H:%M")
+            except:
+                pub_date = date_str
+
+        with st.expander(f"📦 ជំនាន់: {version} | {title} - ({pub_date})"):
+            st.markdown(body)
+            
+            # ទាញយក Link សម្រាប់ Download (បើមាន .exe ឬ file ភ្ជាប់)
+            assets = release.get("assets", [])
+            if assets:
+                st.write("**ឯកសារសម្រាប់ទាញយក:**")
+                for asset in assets:
+                    file_name = asset.get("name")
+                    download_url = asset.get("browser_download_url")
+                    st.markdown(f"⬇️ [{file_name}]({download_url})")
+else:
+    st.info("មិនមានកំណែអាប់ដេតថ្មី ឬមិនអាចភ្ជាប់ទៅកាន់ GitHub បានទេ។")
 
 st.write("---")
 
