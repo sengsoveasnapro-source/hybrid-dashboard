@@ -94,6 +94,12 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
         display_list = []
         total_bal, total_eq, total_prof = 0.0, 0.0, 0.0
         
+        # New variables to store totals for the expanded table
+        total_buy_pos, total_buy_lots = 0, 0.0
+        total_sell_pos, total_sell_lots = 0, 0.0
+        total_active_nodes, total_network_lots = 0, 0.0
+        total_today_lots = 0.0
+        
         for index, row in active_df.iterrows():
             acc = str(row.get('account_number', ''))
             name = row.get('client_name', 'Auto Registered')
@@ -101,18 +107,43 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
             
             bal, eq, prof, status, last_sync = 0.0, 0.0, 0.0, "OFFLINE (គ្មានសេវា)", "-"
             
+            # Variables for the expanded details
+            total_pos = 0
+            buy_count, buy_lots = 0, 0.0
+            sell_count, sell_lots = 0, 0.0
+            today_lots = 0.0
+            past_days = {f"T-{i}": 0.0 for i in range(1, 8)}
+            
             if not live_df.empty and 'vps_name' in live_df.columns:
                 match = live_df[live_df['vps_name'].astype(str) == acc]
                 if not match.empty:
-                    bal = float(match.iloc[0].get('balance', 0))
-                    eq = float(match.iloc[0].get('equity', 0))
-                    prof = float(match.iloc[0].get('profit', 0))
-                    status = str(match.iloc[0].get('status', 'ONLINE'))
-                    last_sync = str(match.iloc[0].get('last_updated', '-'))
+                    m_data = match.iloc[0]
+                    bal = float(m_data.get('balance', 0))
+                    eq = float(m_data.get('equity', 0))
+                    prof = float(m_data.get('profit', 0))
+                    status = str(m_data.get('status', 'ONLINE'))
+                    last_sync = str(m_data.get('last_updated', '-'))
+                    
+                    # Extracting additional metrics from the bot_status table if available.
+                    # Note: These columns need to be actually sent by the MT5 bot to Supabase.
+                    # Currently, the MT5 bot script (v9.1) ONLY sends: vps_name, status, balance, equity, profit, total_pos, today_lots, last_updated
+                    total_pos = int(m_data.get('total_pos', 0))
+                    today_lots = float(m_data.get('today_lots', 0))
+                    
+                    # Since buy_count/lots etc. are NOT currently in the database schema, 
+                    # they will show as 0 here unless you also update the MT5 bot's `sync_to_supabase` function to send them.
+                    buy_count = int(m_data.get('buy_count', 0))
+                    buy_lots = float(m_data.get('buy_lots', 0.0))
+                    sell_count = int(m_data.get('sell_count', 0))
+                    sell_lots = float(m_data.get('sell_lots', 0.0))
             
+            # Aggregate totals
             total_bal += bal; total_eq += eq; total_prof += prof
+            total_buy_pos += buy_count; total_buy_lots += buy_lots
+            total_sell_pos += sell_count; total_sell_lots += sell_lots
+            total_active_nodes += total_pos; total_today_lots += today_lots
+            total_network_lots += (buy_lots + sell_lots)
             
-            # Use the format_status function here
             formatted_status = format_status(status)
 
             display_list.append({
@@ -121,17 +152,33 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
                 "ស្ថានភាព (Status)": formatted_status,
                 "បញ្ជាបច្ចុប្បន្ន": cmd_status,
                 "លុយក្នុងកុង": f"${bal:,.2f}",
-                "ប្រាក់ចំណេញ": f"${prof:,.2f}",
+                "Float P/L": f"${prof:,.2f}", # Replaced ប្រាក់ចំណេញ with Float P/L
+                "Active Nodes": total_pos,
+                "Network Lots": f"{(buy_lots + sell_lots):.2f}",
+                "Long Nodes": buy_count,
+                "Long Lots": f"{buy_lots:.2f}",
+                "Short Nodes": sell_count,
+                "Short Lots": f"{sell_lots:.2f}",
+                "Cycle Volume": f"{today_lots:.2f}",
+                "T-1": past_days["T-1"], "T-2": past_days["T-2"], "T-3": past_days["T-3"], "T-4": past_days["T-4"],
+                "T-5": past_days["T-5"], "T-6": past_days["T-6"], "T-7": past_days["T-7"],
                 "អាប់ដេត": last_sync
             })
             
         colA, colB, colC = st.columns(3)
         colA.metric("💰 ទឹកប្រាក់សរុប", f"${total_bal:,.2f}")
         colB.metric("🛡️ សមតុល្យរួម", f"${total_eq:,.2f}")
-        colC.metric("📈 ប្រាក់ចំណេញរួម", f"${total_prof:,.2f}")
+        colC.metric("📈 ប្រាក់ចំណេញរួម (Float P/L)", f"${total_prof:,.2f}")
+        
+        # Aggregated Metrics Row 2
+        colD, colE, colF, colG, colH = st.columns(5)
+        colD.metric("Active Nodes", total_active_nodes)
+        colE.metric("Network Lots", f"{total_network_lots:.2f}")
+        colF.metric("Long Nodes (Lots)", f"{total_buy_pos} ({total_buy_lots:.2f})")
+        colG.metric("Short Nodes (Lots)", f"{total_sell_pos} ({total_sell_lots:.2f})")
+        colH.metric("Cycle Volume", f"{total_today_lots:.2f}")
         
         st.write("")
-        # We need to use st.markdown to render HTML for the color formatting in the dataframe
         df_to_display = pd.DataFrame(display_list)
         st.write(df_to_display.to_html(escape=False, index=False), unsafe_allow_html=True)
         
