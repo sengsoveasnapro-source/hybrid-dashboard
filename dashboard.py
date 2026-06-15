@@ -82,7 +82,7 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
         for index, row in active_df.iterrows():
             acc = str(row.get('account_number', ''))
             name = row.get('client_name', 'Auto Registered')
-            cmd_status = row.get('bot_command', 'NONE') # ទាញយកបញ្ជា
+            cmd_status = row.get('bot_command', 'NONE') 
             
             bal, eq, prof, status, last_sync = 0.0, 0.0, 0.0, "OFFLINE (គ្មានសេវា)", "-"
             
@@ -116,7 +116,7 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
         st.dataframe(pd.DataFrame(display_list), use_container_width=True, hide_index=True)
         
         # ==========================================
-        # ផ្នែកទី ៣៖ ប្រព័ន្ធបញ្ជាពីចម្ងាយ (REMOTE CONTROL) 🎮
+        # ផ្នែកទី ៣៖ ប្រព័ន្ធបញ្ជាពីចម្ងាយ (REMOTE CONTROL)
         # ==========================================
         st.write("---")
         st.subheader("🎮 ប្រព័ន្ធបញ្ជាពីចម្ងាយ (REMOTE COMMAND CENTER)")
@@ -164,6 +164,56 @@ else:
     st.info("ប្រព័ន្ធកំពុងរង់ចាំការតភ្ជាប់...")
 
 st.write("---")
+
+# ==========================================
+# 🔥 ផ្នែកថ្មី៖ ទាញយកទិន្នន័យពី GITHUB RELEASES
+# ==========================================
+st.subheader("📥 កំណែអាប់ដេតថ្មីៗ (System Updates)")
+
+@st.cache_data(ttl=3600) # Cache data for 1 hour to prevent hitting API limits
+def get_github_releases():
+    url = "https://api.github.com/repos/sengsoveasnapro-source/hybrid-dashboard/releases"
+    try:
+        response = requests.get(url, timeout=5)
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        return None
+    return None
+
+releases = get_github_releases()
+
+if releases:
+    for release in releases[:3]: # បង្ហាញត្រឹមតែ 3 Updates ចុងក្រោយ
+        version = release.get("tag_name", "Unknown Version")
+        title = release.get("name", "No Title")
+        date_str = release.get("published_at", "")
+        body = release.get("body", "មិនមានព័ត៌មានលម្អិតទេ")
+        
+        # កែទម្រង់កាលបរិច្ឆេទឱ្យងាយស្រួលមើល
+        pub_date = "Unknown Date"
+        if date_str:
+            try:
+                pub_date = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ").strftime("%d %b %Y - %H:%M")
+            except:
+                pub_date = date_str
+
+        with st.expander(f"📦 ជំនាន់: {version} | {title} - ({pub_date})"):
+            st.markdown(body)
+            
+            # ទាញយក Link សម្រាប់ Download (បើមាន .exe ឬ file ភ្ជាប់)
+            assets = release.get("assets", [])
+            if assets:
+                st.write("**ឯកសារសម្រាប់ទាញយក:**")
+                for asset in assets:
+                    file_name = asset.get("name")
+                    download_url = asset.get("browser_download_url")
+                    st.markdown(f"⬇️ [{file_name}]({download_url})")
+else:
+    st.info("មិនមានកំណែអាប់ដេតថ្មី ឬមិនអាចភ្ជាប់ទៅកាន់ GitHub បានទេ។")
+
+st.write("---")
+
 col_R1, col_R2, col_R3 = st.columns([1, 2, 1])
 with col_R2:
     if st.button("🔄 REFRESH DATA", use_container_width=True):
