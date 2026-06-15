@@ -72,6 +72,19 @@ st.write("---")
 # ==========================================
 st.subheader("💻 ប្រព័ន្ធកំពុងដំណើរការ (UNIFIED LIVE SYSTEMS)")
 
+def format_status(status_text):
+    """
+    Format status text to include icons and green/red text.
+    """
+    if "ONLINE" in status_text.upper():
+        return f'<span style="color: #00FFA3; font-weight: bold;">🟢 {status_text}</span>'
+    elif "OFFLINE" in status_text.upper() or "FAILED" in status_text.upper():
+        return f'<span style="color: #FF3366; font-weight: bold;">🔴 {status_text}</span>'
+    elif "STANDBY" in status_text.upper() or "PAUSED" in status_text.upper() or "WAITING" in status_text.upper():
+        return f'<span style="color: #FFAA00; font-weight: bold;">🟡 {status_text}</span>'
+    else:
+        return status_text
+
 if not licenses_df.empty and 'is_active' in licenses_df.columns:
     active_df = licenses_df[licenses_df['is_active'] == True]
     
@@ -97,10 +110,13 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
             
             total_bal += bal; total_eq += eq; total_prof += prof
             
+            # Use the format_status function here
+            formatted_status = format_status(status)
+
             display_list.append({
                 "លេខគណនី (ID)": acc,
                 "ឈ្មោះភ្ញៀវ": name,
-                "ស្ថានភាព (Status)": status,
+                "ស្ថានភាព (Status)": formatted_status,
                 "បញ្ជាបច្ចុប្បន្ន": cmd_status,
                 "លុយក្នុងកុង": f"${bal:,.2f}",
                 "ប្រាក់ចំណេញ": f"${prof:,.2f}",
@@ -113,7 +129,9 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
         colC.metric("📈 ប្រាក់ចំណេញរួម", f"${total_prof:,.2f}")
         
         st.write("")
-        st.dataframe(pd.DataFrame(display_list), use_container_width=True, hide_index=True)
+        # We need to use st.markdown to render HTML for the color formatting in the dataframe
+        df_to_display = pd.DataFrame(display_list)
+        st.write(df_to_display.to_html(escape=False, index=False), unsafe_allow_html=True)
         
         # ==========================================
         # ផ្នែកទី ៣៖ ប្រព័ន្ធបញ្ជាពីចម្ងាយ (REMOTE CONTROL)
@@ -162,55 +180,6 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
         st.info("មិនទាន់មានគណនីណាត្រូវបានអនុញ្ញាតនៅឡើយទេ។")
 else:
     st.info("ប្រព័ន្ធកំពុងរង់ចាំការតភ្ជាប់...")
-
-st.write("---")
-
-# ==========================================
-# 🔥 ផ្នែកថ្មី៖ ទាញយកទិន្នន័យពី GITHUB RELEASES
-# ==========================================
-st.subheader("📥 កំណែអាប់ដេតថ្មីៗ (System Updates)")
-
-@st.cache_data(ttl=3600) # Cache data for 1 hour to prevent hitting API limits
-def get_github_releases():
-    url = "https://api.github.com/repos/sengsoveasnapro-source/hybrid-dashboard/releases"
-    try:
-        response = requests.get(url, timeout=5)
-        if response.status_code == 200:
-            return response.json()
-    except Exception as e:
-        return None
-    return None
-
-releases = get_github_releases()
-
-if releases:
-    for release in releases[:3]: # បង្ហាញត្រឹមតែ 3 Updates ចុងក្រោយ
-        version = release.get("tag_name", "Unknown Version")
-        title = release.get("name", "No Title")
-        date_str = release.get("published_at", "")
-        body = release.get("body", "មិនមានព័ត៌មានលម្អិតទេ")
-        
-        # កែទម្រង់កាលបរិច្ឆេទឱ្យងាយស្រួលមើល
-        pub_date = "Unknown Date"
-        if date_str:
-            try:
-                pub_date = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ").strftime("%d %b %Y - %H:%M")
-            except:
-                pub_date = date_str
-
-        with st.expander(f"📦 ជំនាន់: {version} | {title} - ({pub_date})"):
-            st.markdown(body)
-            
-            # ទាញយក Link សម្រាប់ Download (បើមាន .exe ឬ file ភ្ជាប់)
-            assets = release.get("assets", [])
-            if assets:
-                st.write("**ឯកសារសម្រាប់ទាញយក:**")
-                for asset in assets:
-                    file_name = asset.get("name")
-                    download_url = asset.get("browser_download_url")
-                    st.markdown(f"⬇️ [{file_name}]({download_url})")
-else:
-    st.info("មិនមានកំណែអាប់ដេតថ្មី ឬមិនអាចភ្ជាប់ទៅកាន់ GitHub បានទេ។")
 
 st.write("---")
 
