@@ -1,4 +1,8 @@
+MetaTrader5
 streamlit
 pandas
 requests
 supabase
+pyqtgraph
+PyQt5
+numpy
