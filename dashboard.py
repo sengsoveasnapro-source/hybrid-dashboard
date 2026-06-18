@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import pandas as pd
 from supabase import create_client, Client
+from datetime import datetime
 
 # ==========================================
 # ភ្ជាប់ទៅកាន់ Supabase
@@ -21,8 +22,10 @@ st.markdown("""
     p, span, label, div { color: #E0E6ED; }
     .dataframe { border: 1px solid #1a2639; }
     .stAlert { background-color: #0A111E !important; border: 1px solid #00E5FF !important; }
-    /* Center align the Status column header and content */
     th:nth-child(3), td:nth-child(3) { text-align: center; }
+    
+    /* Custom Styling for Command Buttons */
+    div.stButton > button { font-weight: bold; border-radius: 6px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -75,14 +78,11 @@ st.write("---")
 st.subheader("💻 ប្រព័ន្ធកំពុងដំណើរការ (UNIFIED LIVE SYSTEMS)")
 
 def format_status(status_text):
-    """
-    Format status text to include icons and green/red text.
-    """
-    if "ONLINE" in status_text.upper():
+    if "ONLINE" in str(status_text).upper():
         return f'<span style="color: #00FFA3; font-weight: bold;">🟢 {status_text}</span>'
-    elif "OFFLINE" in status_text.upper() or "FAILED" in status_text.upper():
+    elif "OFFLINE" in str(status_text).upper() or "FAILED" in str(status_text).upper():
         return f'<span style="color: #FF3366; font-weight: bold;">🔴 {status_text}</span>'
-    elif "STANDBY" in status_text.upper() or "PAUSED" in status_text.upper() or "WAITING" in status_text.upper():
+    elif "STANDBY" in str(status_text).upper() or "PAUSED" in str(status_text).upper() or "WAITING" in str(status_text).upper():
         return f'<span style="color: #FFAA00; font-weight: bold;">🟡 {status_text}</span>'
     else:
         return status_text
@@ -93,8 +93,6 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
     if not active_df.empty:
         display_list = []
         total_bal, total_eq, total_prof = 0.0, 0.0, 0.0
-        
-        # New variables to store totals for the expanded table
         total_buy_pos, total_buy_lots = 0, 0.0
         total_sell_pos, total_sell_lots = 0, 0.0
         total_active_nodes, total_network_lots = 0, 0.0
@@ -107,7 +105,6 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
             
             bal, eq, prof, status, last_sync = 0.0, 0.0, 0.0, "OFFLINE (គ្មានសេវា)", "-"
             
-            # Variables for the expanded details
             total_pos = 0
             buy_count, buy_lots = 0, 0.0
             sell_count, sell_lots = 0, 0.0
@@ -124,20 +121,13 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
                     status = str(m_data.get('status', 'ONLINE'))
                     last_sync = str(m_data.get('last_updated', '-'))
                     
-                    # Extracting additional metrics from the bot_status table if available.
-                    # Note: These columns need to be actually sent by the MT5 bot to Supabase.
-                    # Currently, the MT5 bot script (v9.1) ONLY sends: vps_name, status, balance, equity, profit, total_pos, today_lots, last_updated
                     total_pos = int(m_data.get('total_pos', 0))
                     today_lots = float(m_data.get('today_lots', 0))
-                    
-                    # Since buy_count/lots etc. are NOT currently in the database schema, 
-                    # they will show as 0 here unless you also update the MT5 bot's `sync_to_supabase` function to send them.
                     buy_count = int(m_data.get('buy_count', 0))
                     buy_lots = float(m_data.get('buy_lots', 0.0))
                     sell_count = int(m_data.get('sell_count', 0))
                     sell_lots = float(m_data.get('sell_lots', 0.0))
             
-            # Aggregate totals
             total_bal += bal; total_eq += eq; total_prof += prof
             total_buy_pos += buy_count; total_buy_lots += buy_lots
             total_sell_pos += sell_count; total_sell_lots += sell_lots
@@ -150,9 +140,9 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
                 "លេខគណនី (ID)": acc,
                 "ឈ្មោះភ្ញៀវ": name,
                 "ស្ថានភាព (Status)": formatted_status,
-                "បញ្ជាបច្ចុប្បន្ន": cmd_status,
+                "បញ្ជាបច្ចុប្បន្ន": f"**{cmd_status}**",
                 "លុយក្នុងកុង": f"${bal:,.2f}",
-                "Float P/L": f"${prof:,.2f}", # Replaced ប្រាក់ចំណេញ with Float P/L
+                "Float P/L": f"${prof:,.2f}",
                 "Active Nodes": total_pos,
                 "Network Lots": f"{(buy_lots + sell_lots):.2f}",
                 "Long Nodes": buy_count,
@@ -170,7 +160,6 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
         colB.metric("🛡️ សមតុល្យរួម", f"${total_eq:,.2f}")
         colC.metric("📈 ប្រាក់ចំណេញរួម (Float P/L)", f"${total_prof:,.2f}")
         
-        # Aggregated Metrics Row 2
         colD, colE, colF, colG, colH = st.columns(5)
         colD.metric("Active Nodes", total_active_nodes)
         colE.metric("Network Lots", f"{total_network_lots:.2f}")
@@ -190,24 +179,42 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
         
         rc_col1, rc_col2 = st.columns([1, 2])
         with rc_col1:
-            cmd_target = st.selectbox("🎯 ជ្រើសរើស Bot គោលដៅ៖", active_df['account_number'])
+            cmd_target = st.selectbox("🎯 ជ្រើសរើសលេខគណនី (Bot) គោលដៅ៖", active_df['account_number'], key="remote_acc_select")
         
         with rc_col2:
-            st.write("⚡ ផ្ទាំងបញ្ជា (Action Panel):")
+            st.write("⚡ **ផ្ទាំងបញ្ជាបន្ទាន់ (Action Panel):**")
             b1, b2, b3 = st.columns(3)
             
-            if b1.button("⏸ ផ្អាក (Pause Bot)", use_container_width=True):
-                supabase.table("mt5_licenses").update({"bot_command": "PAUSE"}).eq("account_number", cmd_target).execute()
-                st.success(f"បានបញ្ជូនបញ្ជា PAUSE ទៅកាន់ {cmd_target}")
-                
-            if b2.button("▶️ បន្ត (Resume Bot)", use_container_width=True):
-                supabase.table("mt5_licenses").update({"bot_command": "NONE"}).eq("account_number", cmd_target).execute()
-                st.success(f"បានបញ្ជូនបញ្ជា RESUME ទៅកាន់ {cmd_target}")
-                
-            if b3.button("🛑 បិទអូឌ័រទាំងអស់", type="primary", use_container_width=True):
-                supabase.table("mt5_licenses").update({"bot_command": "CLOSE_ALL"}).eq("account_number", cmd_target).execute()
-                st.error(f"បានបញ្ជូនបញ្ជា CLOSE ALL ទៅកាន់ {cmd_target} បន្ទាន់!")
+            if b1.button("⏸ ផ្អាក (Pause Trading)", use_container_width=True):
+                try:
+                    supabase.table("mt5_licenses").update({"bot_command": "PAUSE"}).eq("account_number", cmd_target).execute()
+                    st.success(f"✅ បានបញ្ជូនបញ្ជា PAUSE ទៅកាន់គណនី {cmd_target} រួចរាល់! វានឹងឈប់ចូល Order ថ្មី។")
+                    time.sleep(1)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ បរាជ័យក្នុងការបញ្ជូនបញ្ជា: {e}")
+                    
+            if b2.button("▶️ បន្ត (Resume Trading)", use_container_width=True):
+                try:
+                    supabase.table("mt5_licenses").update({"bot_command": "NONE"}).eq("account_number", cmd_target).execute()
+                    st.success(f"✅ បានបញ្ជូនបញ្ជា RESUME ទៅកាន់គណនី {cmd_target} រួចរាល់! វានឹងបន្តទិញលក់ធម្មតាវិញ។")
+                    time.sleep(1)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ បរាជ័យក្នុងការបញ្ជូនបញ្ជា: {e}")
+                    
+            if b3.button("🛑 បិទអូឌ័រទាំងអស់ (Close All)", type="primary", use_container_width=True):
+                try:
+                    supabase.table("mt5_licenses").update({"bot_command": "CLOSE_ALL"}).eq("account_number", cmd_target).execute()
+                    st.error(f"🚨 បានបញ្ជូនបញ្ជា CLOSE ALL ទៅកាន់គណនី {cmd_target}! រាល់ Order ទាំងអស់កំពុងត្រូវបានបិទ។")
+                    time.sleep(1)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ បរាជ័យក្នុងការបញ្ជូនបញ្ជា: {e}")
 
+        # ==========================================
+        # កែប្រែឈ្មោះ និង ដកសិទ្ធិ
+        # ==========================================
         st.write("")
         with st.expander("⚙️ កែប្រែឈ្មោះ ឬ ដកគណនី (Manage Clients)"):
             c1, c2, c3 = st.columns([2, 1, 1])
@@ -219,16 +226,19 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
                 if st.button("🚫 បិទសិទ្ធិ (Revoke Access)", use_container_width=True):
                     supabase.table("mt5_licenses").update({"is_active": False}).eq("account_number", target_acc).execute()
                     st.success(f"បានបិទសិទ្ធិគណនី {target_acc} រួចរាល់!")
+                    time.sleep(1)
                     st.rerun()
                 if st.button("📝 រក្សាទុកឈ្មោះថ្មី", use_container_width=True) and new_name:
                     supabase.table("mt5_licenses").update({"client_name": new_name}).eq("account_number", target_acc).execute()
                     st.success(f"បានប្តូរឈ្មោះទៅជា {new_name} រួចរាល់!")
+                    time.sleep(1)
                     st.rerun()
             with c3:
                 st.write(""); st.write("")
                 if st.button("🗑️ លុបគណនី (Remove)", type="primary", use_container_width=True):
                     supabase.table("mt5_licenses").delete().eq("account_number", target_acc).execute()
                     st.error(f"បានលុបគណនី {target_acc} ចេញពីប្រព័ន្ធទាំងស្រុង!")
+                    time.sleep(1)
                     st.rerun()
 
     else:
@@ -243,7 +253,7 @@ st.write("---")
 # ==========================================
 st.subheader("📥 កំណែអាប់ដេតថ្មីៗ (System Updates)")
 
-@st.cache_data(ttl=3600) # Cache data for 1 hour to prevent hitting API limits
+@st.cache_data(ttl=3600) 
 def get_github_releases():
     url = "https://api.github.com/repos/sengsoveasnapro-source/hybrid-dashboard/releases"
     try:
@@ -257,13 +267,12 @@ def get_github_releases():
 releases = get_github_releases()
 
 if releases:
-    for release in releases[:3]: # បង្ហាញត្រឹមតែ 3 Updates ចុងក្រោយ
+    for release in releases[:3]: 
         version = release.get("tag_name", "Unknown Version")
         title = release.get("name", "No Title")
         date_str = release.get("published_at", "")
         body = release.get("body", "មិនមានព័ត៌មានលម្អិតទេ")
         
-        # កែទម្រង់កាលបរិច្ឆេទឱ្យងាយស្រួលមើល
         pub_date = "Unknown Date"
         if date_str:
             try:
@@ -274,7 +283,6 @@ if releases:
         with st.expander(f"📦 ជំនាន់: {version} | {title} - ({pub_date})"):
             st.markdown(body)
             
-            # ទាញយក Link សម្រាប់ Download (បើមាន .exe ឬ file ភ្ជាប់)
             assets = release.get("assets", [])
             if assets:
                 st.write("**ឯកសារសម្រាប់ទាញយក:**")
