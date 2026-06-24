@@ -3,6 +3,7 @@ import requests
 import pandas as pd
 from supabase import create_client, Client
 from datetime import datetime
+import time # 🔥 បន្ថែម import time ដើម្បីកុំឱ្យគាំងពេលចុចលុបគណនី
 
 # ==========================================
 # ភ្ជាប់ទៅកាន់ Supabase
