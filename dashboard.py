@@ -3,7 +3,7 @@ import requests
 import pandas as pd
 from supabase import create_client, Client
 from datetime import datetime
-import time # 🔥 បន្ថែម import time ដើម្បីកុំឱ្យគាំងពេលចុចលុបគណនី
+import time # ការពារការគាំងពេលចុច Refresh ឬលុប
 
 # ==========================================
 # ភ្ជាប់ទៅកាន់ Supabase
@@ -61,10 +61,22 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
     if not pending_df.empty:
         for index, row in pending_df.iterrows():
             acc = row.get('account_number', 'Unknown')
-            col1, col2 = st.columns([4, 1])
+            # ប្រើប្រាស់សសរ (Columns) 3 ដើម្បីផ្ទុកអក្សរ និងប៊ូតុង ២
+            col1, col2, col3 = st.columns([3, 1, 1])
             col1.warning(f"⚠️ មានសំណើថ្មីពីគណនីលេខ៖ **{acc}**")
-            if col2.button(f"✅ អនុម័ត (Approve)", key=f"approve_{acc}"):
+            
+            # ប៊ូតុង អនុម័ត
+            if col2.button(f"✅ អនុម័ត (Approve)", key=f"approve_{acc}", use_container_width=True):
                 supabase.table("mt5_licenses").update({"is_active": True}).eq("account_number", acc).execute()
+                st.success(f"បានអនុម័តគណនី {acc} រួចរាល់!")
+                time.sleep(1)
+                st.rerun()
+                
+            # ប៊ូតុង បដិសេធ (លុបចោល) - បន្ថែមថ្មី
+            if col3.button(f"🗑️ បដិសេធ (Reject)", key=f"reject_{acc}", type="primary", use_container_width=True):
+                supabase.table("mt5_licenses").delete().eq("account_number", acc).execute()
+                st.error(f"បានបដិសេធ និងលុបគណនី {acc} ចោលរួចរាល់!")
+                time.sleep(1)
                 st.rerun()
     else:
         st.success("✅ មិនមានសំណើថ្មីទេបច្ចុប្បន្ន។")
