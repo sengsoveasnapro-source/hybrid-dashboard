@@ -150,15 +150,14 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
             formatted_status = format_status(status)
 
             display_list.append({
-                "លេខគណនី (ID)": acc,
-                "ឈ្មោះភ្ញៀវ": name,
-                "ស្ថានភាព (Status)": formatted_status,
-                "បញ្ជាបច្ចុប្បន្ន": f"**{cmd_status}**",
-                "លុយក្នុងកុង": f"${bal:,.2f}",
-                "Float P/L": f"${prof:,.2f}",
+                "ID": acc,
+                "Name": name,
+                "Status": formatted_status,
+                "Balance": f"${bal:,.2f}",
+                "profit": f"${prof:,.2f}",
                 "Active Nodes": total_pos,
-                "Network Lots": f"{(buy_lots + sell_lots):.2f}",
-                "Cycle Volume": f"{today_lots:.2f}",
+                "Today Lots": f"{(buy_lots + sell_lots):.2f}",
+                "Total Lots": f"{today_lots:.2f}",
                 "T-1": past_days["T-1"], "T-2": past_days["T-2"], "T-3": past_days["T-3"], "T-4": past_days["T-4"],
                 "T-5": past_days["T-5"], "T-6": past_days["T-6"], "T-7": past_days["T-7"],
                 "អាប់ដេត": last_sync
@@ -167,12 +166,12 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
         colA, colB, colC = st.columns(3)
         colA.metric("💰 ទឹកប្រាក់សរុប", f"${total_bal:,.2f}")
         colB.metric("🛡️ សមតុល្យរួម", f"${total_eq:,.2f}")
-        colC.metric("📈 ប្រាក់ចំណេញរួម (Float P/L)", f"${total_prof:,.2f}")
+        colC.metric("📈 ប្រាក់ចំណេញរួម (profit)", f"${total_prof:,.2f}")
         
         colD, colE, colF, colG, colH = st.columns(5)
         colD.metric("Active Nodes", total_active_nodes)
-        colE.metric("Network Lots", f"{total_network_lots:.2f}")
-        colH.metric("Cycle Volume", f"{total_today_lots:.2f}")
+        colE.metric("Today Lots", f"{total_network_lots:.2f}")
+        colH.metric("Total Lots", f"{total_today_lots:.2f}")
         
         st.write("")
         df_to_display = pd.DataFrame(display_list)
