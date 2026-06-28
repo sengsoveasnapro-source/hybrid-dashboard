@@ -158,10 +158,6 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
                 "Float P/L": f"${prof:,.2f}",
                 "Active Nodes": total_pos,
                 "Network Lots": f"{(buy_lots + sell_lots):.2f}",
-                "Long Nodes": buy_count,
-                "Long Lots": f"{buy_lots:.2f}",
-                "Short Nodes": sell_count,
-                "Short Lots": f"{sell_lots:.2f}",
                 "Cycle Volume": f"{today_lots:.2f}",
                 "T-1": past_days["T-1"], "T-2": past_days["T-2"], "T-3": past_days["T-3"], "T-4": past_days["T-4"],
                 "T-5": past_days["T-5"], "T-6": past_days["T-6"], "T-7": past_days["T-7"],
@@ -176,8 +172,6 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
         colD, colE, colF, colG, colH = st.columns(5)
         colD.metric("Active Nodes", total_active_nodes)
         colE.metric("Network Lots", f"{total_network_lots:.2f}")
-        colF.metric("Long Nodes (Lots)", f"{total_buy_pos} ({total_buy_lots:.2f})")
-        colG.metric("Short Nodes (Lots)", f"{total_sell_pos} ({total_sell_lots:.2f})")
         colH.metric("Cycle Volume", f"{total_today_lots:.2f}")
         
         st.write("")
