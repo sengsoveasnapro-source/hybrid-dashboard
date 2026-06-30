@@ -158,8 +158,8 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
                 "Active Nodes": total_pos,
                 "Today Lots": f"{today_lots:.2f}",
                 "Total Lots": f"{(buy_lots + sell_lots):.2f}",
-                "t-1": past_days["t-1"], "t-2": past_days["t-2"], "t-3": past_days["t-3"], "t-4": past_days["t-4"],
-                "t-5": past_days["t-5"], "t-6": past_days["t-6"], "t-7": past_days["t-7"],
+                "T-1": past_days["T-1"], "T-2": past_days["T-2"], "T-3": past_days["T-3"], "T-4": past_days["T-4"],
+                "T-5": past_days["T-5"], "T-6": past_days["T-6"], "T-7": past_days["T-7"],
                 "អាប់ដេត": last_sync
             })
             
