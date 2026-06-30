@@ -50,6 +50,19 @@ def fetch_live_data():
 
 live_df = pd.DataFrame(fetch_live_data())
 
+# 🚀 Helper Functions ការពារការចេញអក្សរ nan ពេល Database ទទេ
+def safe_float(val):
+    try:
+        if pd.isna(val) or val is None: return 0.0
+        return float(val)
+    except: return 0.0
+
+def safe_int(val):
+    try:
+        if pd.isna(val) or val is None: return 0
+        return int(float(val))
+    except: return 0
+
 # ==========================================
 # ផ្នែកទី ១៖ សំណើសុំសិទ្ធិថ្មី 
 # ==========================================
@@ -61,18 +74,15 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
     if not pending_df.empty:
         for index, row in pending_df.iterrows():
             acc = row.get('account_number', 'Unknown')
-            # ប្រើប្រាស់សសរ (Columns) 3 ដើម្បីផ្ទុកអក្សរ និងប៊ូតុង ២
             col1, col2, col3 = st.columns([3, 1, 1])
             col1.warning(f"⚠️ មានសំណើថ្មីពីគណនីលេខ៖ **{acc}**")
             
-            # ប៊ូតុង អនុម័ត
             if col2.button(f"✅ អនុម័ត (Approve)", key=f"approve_{acc}", use_container_width=True):
                 supabase.table("mt5_licenses").update({"is_active": True}).eq("account_number", acc).execute()
                 st.success(f"បានអនុម័តគណនី {acc} រួចរាល់!")
                 time.sleep(1)
                 st.rerun()
                 
-            # ប៊ូតុង បដិសេធ (លុបចោល) - បន្ថែមថ្មី
             if col3.button(f"🗑️ បដិសេធ (Reject)", key=f"reject_{acc}", type="primary", use_container_width=True):
                 supabase.table("mt5_licenses").delete().eq("account_number", acc).execute()
                 st.error(f"បានបដិសេធ និងលុបគណនី {acc} ចោលរួចរាល់!")
@@ -95,7 +105,7 @@ def format_status(status_text):
         return f'<span style="color: #00FFA3; font-weight: bold;">🟢 {status_text}</span>'
     elif "OFFLINE" in str(status_text).upper() or "FAILED" in str(status_text).upper():
         return f'<span style="color: #FF3366; font-weight: bold;">🔴 {status_text}</span>'
-    elif "STANDBY" in str(status_text).upper() or "PAUSED" in str(status_text).upper() or "WAITING" in str(status_text).upper():
+    elif "STANDBY" in str(status_text).upper() or "PAUSED" in str(status_text).upper() or "WAITING" in str(status_text).upper() or "LOCKED" in str(status_text).upper():
         return f'<span style="color: #FFAA00; font-weight: bold;">🟡 {status_text}</span>'
     else:
         return status_text
@@ -114,64 +124,90 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
         for index, row in active_df.iterrows():
             acc = str(row.get('account_number', ''))
             name = row.get('client_name', 'Auto Registered')
-            cmd_status = row.get('bot_command', 'NONE') 
             
+            # កំណត់តម្លៃដើម
             bal, eq, prof, status, last_sync = 0.0, 0.0, 0.0, "OFFLINE (គ្មានសេវា)", "-"
-            
-            total_pos = 0
-            buy_count, buy_lots = 0, 0.0
-            sell_count, sell_lots = 0, 0.0
-            today_lots = 0.0
-            past_days = {f"T-{i}": 0.0 for i in range(1, 8)}
+            total_pos, today_lots, total_lots_db = 0, 0.0, 0.0
+            buy_count, buy_lots, sell_count, sell_lots = 0, 0.0, 0, 0.0
+            cycle_volume = 0.0
+            t1, t2, t3, t4, t5, t6, t7 = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
             
             if not live_df.empty and 'vps_name' in live_df.columns:
                 match = live_df[live_df['vps_name'].astype(str) == acc]
                 if not match.empty:
                     m_data = match.iloc[0]
-                    bal = float(m_data.get('balance', 0))
-                    eq = float(m_data.get('equity', 0))
-                    prof = float(m_data.get('profit', 0))
-                    status = str(m_data.get('status', 'ONLINE'))
-                    last_sync = str(m_data.get('last_updated', '-'))
+                    bal = safe_float(m_data.get('balance'))
+                    eq = safe_float(m_data.get('equity'))
+                    prof = safe_float(m_data.get('profit'))
                     
-                    total_pos = int(m_data.get('total_pos', 0))
-                    today_lots = float(m_data.get('today_lots', 0))
-                    buy_count = int(m_data.get('buy_count', 0))
-                    buy_lots = float(m_data.get('buy_lots', 0.0))
-                    sell_count = int(m_data.get('sell_count', 0))
-                    sell_lots = float(m_data.get('sell_lots', 0.0))
+                    status = str(m_data.get('status', 'ONLINE'))
+                    if status.lower() == 'nan': status = 'OFFLINE (គ្មានសេវា)'
+                        
+                    last_sync = str(m_data.get('last_updated', '-'))
+                    if last_sync.lower() == 'nan': last_sync = '-'
+                    
+                    total_pos = safe_int(m_data.get('total_pos'))
+                    today_lots = safe_float(m_data.get('today_lots'))
+                    
+                    # 🚀 ទាញយកឱ្យត្រូវនឹង Column Database
+                    buy_count = safe_int(m_data.get('long_nodes'))
+                    buy_lots = safe_float(m_data.get('long_lots'))
+                    sell_count = safe_int(m_data.get('short_nodes'))
+                    sell_lots = safe_float(m_data.get('short_lots'))
+                    cycle_volume = safe_float(m_data.get('cycle_volume'))
+                    total_lots_db = safe_float(m_data.get('Total_lots'))
+                    
+                    t1 = safe_float(m_data.get('t_1'))
+                    t2 = safe_float(m_data.get('t_2'))
+                    t3 = safe_float(m_data.get('t_3'))
+                    t4 = safe_float(m_data.get('t_4'))
+                    t5 = safe_float(m_data.get('t_5'))
+                    t6 = safe_float(m_data.get('t_6'))
+                    t7 = safe_float(m_data.get('t_7'))
             
             total_bal += bal; total_eq += eq; total_prof += prof
             total_buy_pos += buy_count; total_buy_lots += buy_lots
             total_sell_pos += sell_count; total_sell_lots += sell_lots
             total_active_nodes += total_pos; total_today_lots += today_lots
-            total_network_lots += (buy_lots + sell_lots)
+            total_network_lots += total_lots_db
             
             formatted_status = format_status(status)
+            
+            # កាត់ពេលវេលាអាប់ដេតឱ្យស្អាត (លុប T និងខ្ទង់ទសភាគវិនាទីចេញ)
+            clean_time = last_sync.split('.')[0].replace('T', ' ') if last_sync != '-' else '-'
 
             display_list.append({
                 "ID": acc,
                 "Name": name,
                 "Status": formatted_status,
                 "Balance": f"${bal:,.2f}",
-                "profit": f"${prof:,.2f}",
+                "Float P/L": f"${prof:,.2f}",
                 "Active Nodes": total_pos,
                 "Today Lots": f"{today_lots:.2f}",
-                "Total Lots": f"{(buy_lots + sell_lots):.2f}",
-                "T-1": past_days["T-1"], "T-2": past_days["T-2"], "T-3": past_days["T-3"], "T-4": past_days["T-4"],
-                "T-5": past_days["T-5"], "T-6": past_days["T-6"], "T-7": past_days["T-7"],
-                "អាប់ដេត": last_sync
+                "Total Lots": f"{total_lots_db:.2f}",
+                "Long Nodes": buy_count,
+                "Long Lots": f"{buy_lots:.2f}",
+                "Short Nodes": sell_count,
+                "Short Lots": f"{sell_lots:.2f}",
+                "T-1": f"{t1:.2f}", 
+                "T-2": f"{t2:.2f}", 
+                "T-3": f"{t3:.2f}", 
+                "T-4": f"{t4:.2f}",
+                "T-5": f"{t5:.2f}", 
+                "T-6": f"{t6:.2f}", 
+                "T-7": f"{t7:.2f}",
+                "អាប់ដេត": clean_time
             })
             
         colA, colB, colC = st.columns(3)
-        colA.metric("💰 ទឹកប្រាក់សរុប", f"${total_bal:,.2f}")
-        colB.metric("🛡️ សមតុល្យរួម", f"${total_eq:,.2f}")
-        colC.metric("📈 ប្រាក់ចំណេញរួម (profit)", f"${total_prof:,.2f}")
+        colA.metric("💰 ទឹកប្រាក់សរុប (Net Balance)", f"${total_bal:,.2f}")
+        colB.metric("🛡️ សមតុល្យរួម (Live Equity)", f"${total_eq:,.2f}")
+        colC.metric("📈 ប្រាក់ចំណេញរួម (Float P/L)", f"${total_prof:,.2f}")
         
-        colD, colE, colF, colG, colH = st.columns(5)
+        colD, colE, colH = st.columns(3)
         colD.metric("Active Nodes", total_active_nodes)
-        colE.metric("Today Lots", f"{total_network_lots:.2f}")
-        colH.metric("Total Lots", f"{total_today_lots:.2f}")
+        colE.metric("Today Lots", f"{total_today_lots:.2f}")
+        colH.metric("Total Lots", f"{total_network_lots:.2f}")
         
         st.write("")
         df_to_display = pd.DataFrame(display_list)
