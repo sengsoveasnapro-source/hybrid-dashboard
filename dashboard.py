@@ -154,8 +154,8 @@ if not licenses_df.empty and 'is_active' in licenses_df.columns:
                     buy_lots = safe_float(m_data.get('long_lots'))
                     sell_count = safe_int(m_data.get('short_nodes'))
                     sell_lots = safe_float(m_data.get('short_lots'))
-                    cycle_volume = safe_float(m_data.get('cycle_volume'))
-                    total_lots_db = safe_float(m_data.get('Total_lots'))
+                    today_lots = safe_float(m_data.get('today_lots'))
+                    total_lots_db = safe_float(m_data.get('total_lots'))
                     
                     t1 = safe_float(m_data.get('t_1'))
                     t2 = safe_float(m_data.get('t_2'))
