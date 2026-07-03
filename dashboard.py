@@ -228,69 +228,48 @@ with tab_dashboard:
 # ==============================================================================
 # 🔑 TAB 2: LICENSE MANAGEMENT CENTER (អាប់ដេតថ្មីមានលេខរៀង និងប៊ូតុងលុប)
 # ==============================================================================
+# ==============================================================================
+# 🔑 TAB 2: LICENSE MANAGEMENT CENTER (រៀបចំឱ្យប៊ូតុងនៅស្អាត មិនបាត់)
+# ==============================================================================
 with tab_license_center:
-    st.subheader("🔑 LICENSE & DATA ANALYTICS EMPIRE")
-    st.write("---")
+    st.subheader("🔑 LICENSE MANAGEMENT CENTER")
     
-    # ... (រក្សាទុកកូដក្រាហ្វ និង Alert ដដែល) ...
-    
-    st.markdown("### 📋 Quick Search & License Database")
-    search_q = st.text_input("ស្វែងរកតាមលេខ Account ID ឬ ឈ្មោះអតិថិជន:", placeholder="វាយបញ្ចូលទីនេះ...")
+    search_q = st.text_input("🔍 ស្វែងរកលេខ ID ឬ ឈ្មោះ:", placeholder="វាយស្វែងរក...")
 
     if not licenses_df.empty:
+        # ត្រងទិន្នន័យ
+        filtered = licenses_df
         if search_q:
-            filtered_licenses = licenses_df[
-                licenses_df['account_number'].astype(str).str.contains(search_q) | 
-                licenses_df['owner_name'].astype(str).str.contains(search_q, case=False, na=False)
-            ]
-        else:
-            filtered_licenses = licenses_df
-
-        st.markdown(f"📊 លទ្ធផលសរុប៖ **{len(filtered_licenses)} គណនី**")
-        st.markdown("<hr style='margin: 5px 0px; border: 1px solid #1a2639'>", unsafe_allow_html=True)
+            filtered = licenses_df[licenses_df['account_number'].astype(str).str.contains(search_q) | 
+                                   licenses_df['owner_name'].astype(str).str.contains(search_q, case=False, na=False)]
         
-        # Header Row
-        h_col1, h_col2, h_col3, h_col4, h_col5, h_col6 = st.columns([0.5, 1.5, 2, 2.5, 1.5, 1.5])
-        h_col1.markdown("**#**") # លេខរៀង
-        h_col2.markdown("**🆔 Exness ID**")
-        h_col3.markdown("**👤 ឈ្មោះ**")
-        h_col4.markdown("**🖥️ HWID**")
-        h_col5.markdown("**📊 Status**")
-        h_col6.markdown("**⚙️ Action**")
-        st.markdown("<hr style='margin: 5px 0px; border: 1px solid #1a2639'>", unsafe_allow_html=True)
-        
-        # Data Rows
-        for idx, row in filtered_licenses.iterrows():
-            acc_id = row.get('account_number', 'Unknown')
-            owner = row.get('owner_name', 'No Name')
-            hwid = str(row.get('hwid', 'N/A'))[:15] + "..."
+        # បង្កើតតារាងដែលស្អាត និងងាយស្រួលមើល
+        for idx, row in filtered.iterrows():
+            acc_id = row.get('account_number', 'N/A')
+            owner = row.get('owner_name', 'N/A')
             is_active = row.get('is_active', False)
-            tbl_source = row.get('source_table', 'user_licenses')
+            tbl = row.get('source_table', 'user_licenses')
             
-            c1, c2, c3, c4, c5, c6 = st.columns([0.5, 1.5, 2, 2.5, 1.5, 1.5])
-            
-            c1.write(f"{idx + 1}") # លេខរៀង
-            c2.markdown(f"<b>{acc_id}</b>", unsafe_allow_html=True)
-            c3.write(owner)
-            c4.write(hwid)
-            c5.write("✅" if is_active else "⏳")
-            
-            with c6:
-                btn_cols = st.columns(2)
-                # Approve / Revoke Buttons
-                is_disabled = bool(is_active == True)
-                if btn_cols[0].button("✅", key=f"app_{acc_id}_{idx}", help="Approve", disabled=is_disabled):
-                    supabase.table(tbl_source).update({"is_active": True}).eq("account_number", acc_id).execute()
-                    st.rerun()
+            # ប្រើ Container ដើម្បីឱ្យវានៅជាជួរស្អាត
+            with st.container():
+                cols = st.columns([1, 2, 2, 1, 2])
+                cols[0].write(f"**{idx + 1}**") # លេខរៀង
+                cols[1].write(f"**{acc_id}**")
+                cols[2].write(owner)
+                cols[3].write("✅" if is_active else "⏳")
                 
-                # ប៊ូតុង លុប (Delete)
-                if btn_cols[1].button("🗑️", key=f"del_{acc_id}_{idx}", help="លុបចោល"):
-                    supabase.table(tbl_source).delete().eq("account_number", acc_id).execute()
-                    st.toast(f"🗑️ បានលុប {acc_id} ចេញពីប្រព័ន្ធ!")
-                    time.sleep(0.5)
-                    st.rerun()
-
-            st.markdown("<hr style='margin: 5px 0px; border-top: 1px solid #1a2639'>", unsafe_allow_html=True)
+                with cols[4]:
+                    # ដាក់ប៊ូតុងឱ្យនៅក្បែរគ្នាជាប៊ូតុងតូច
+                    b1, b2 = st.columns(2)
+                    if b1.button("✅", key=f"app_{acc_id}_{idx}", help="Approve", disabled=is_active):
+                        supabase.table(tbl).update({"is_active": True}).eq("account_number", acc_id).execute()
+                        st.rerun()
+                    if b2.button("🗑️", key=f"del_{acc_id}_{idx}", help="លុបចោល"):
+                        supabase.table(tbl).delete().eq("account_number", acc_id).execute()
+                        st.rerun()
+                st.divider() # គូសបន្ទាត់ឱ្យដាច់ពីគ្នាស្អាត
+    else:
+        st.info("មិនទាន់មានទិន្នន័យ។")
 
 # ==========================================
 # 🔄 REFRESH BUTTON
