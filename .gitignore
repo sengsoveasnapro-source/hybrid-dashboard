@@ -1,1 +1,6 @@
 .env
+dist/
+build/
+*.exe
+*.pkg
+Old/
