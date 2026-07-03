@@ -1,21 +1,15 @@
 import streamlit as st
-import requests
 import pandas as pd
-from supabase import create_client, Client
-from datetime import datetime
-import time 
-import os
-from dotenv import load_dotenv
-load_dotenv() 
+import requests
+import time
+from supabase import create_client
 
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+# ដក load_dotenv ចេញក៏បាន
+# ប្រើ st.secrets ដើម្បីហៅ Key
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 
-# ==========================================
-# ភ្ជាប់ទៅកាន់ Supabase
-# ==========================================
-SUPABASE_URL = "https://bqozwahxwhnpnasixxps.supabase.co"
-# SUPABASE_KEY = "" 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 st.set_page_config(page_title="Hybrid Control Center", page_icon="⚡", layout="wide")
 
@@ -317,14 +311,17 @@ with tab_license_center:
                 c4.markdown("<span style='color:#FFAA00; font-weight:bold;'>● PENDING</span>", unsafe_allow_html=True)
                 
             with c5:
+                # 🚀 ចំណុចដែលបានជួសជុល (ធានាថា disabled ជាប្រភេទ True/False មិនមែន nan)
+                is_button_disabled = bool(is_active == True)
+                
                 # ប៊ូតុង Approve & Revoke
                 btn_c1, btn_c2 = st.columns(2)
-                if btn_c1.button("✅ Approve", key=f"app_{acc_id}_{idx}", use_container_width=True, disabled=is_active):
+                if btn_c1.button("✅ Approve", key=f"app_{acc_id}_{idx}", use_container_width=True, disabled=is_button_disabled):
                     supabase.table(tbl_source).update({"is_active": True}).eq("account_number", acc_id).execute()
                     st.toast("✅ Approved!")
                     time.sleep(0.3)
                     st.rerun()
-                if btn_c2.button("🚫 Revoke", key=f"rev_{acc_id}_{idx}", type="primary", use_container_width=True, disabled=not is_active):
+                if btn_c2.button("🚫 Revoke", key=f"rev_{acc_id}_{idx}", type="primary", use_container_width=True, disabled=(not is_button_disabled)):
                     supabase.table(tbl_source).update({"is_active": False}).eq("account_number", acc_id).execute()
                     st.toast("🚫 Revoked!")
                     time.sleep(0.3)
