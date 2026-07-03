@@ -1,7 +1,5 @@
+python-dotenv
 streamlit
 pandas
-requests
 supabase
-pyqtgraph
-PyQt5
-numpy
+requests
