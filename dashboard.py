@@ -18,60 +18,19 @@ st.set_page_config(page_title="Hybrid Control Center", page_icon="⚡", layout="
 st.markdown("""
     <style>
     .stApp { background-color: #060a0f; color: #E0E6ED; } 
-    h1, h2, h3 { color: #00E5FF !important; font-weight: 900; text-shadow: 0px 0px 10px rgba(0, 229, 255, 0.4); } 
-    div[data-testid="stMetricValue"] { color: #00FFA3 !important; font-size: 30px; font-weight: bold; } 
-    div[data-testid="stMetricLabel"] { color: #FFAA00 !important; font-size: 14px; font-weight: bold; } 
-    .dataframe { border: 1px solid #1a2639; }
-    div.stButton > button { font-weight: bold; border-radius: 6px; }
-    
-    /* Modern Compact Card Style */
-    .client-card {
-        background: linear-gradient(135deg, #0b1118 0%, #111a26 100%);
-        border-left: 4px solid #00E5FF;
-        border-top: 1px solid #1a2639;
-        border-right: 1px solid #1a2639;
-        border-bottom: 1px solid #1a2639;
-        border-radius: 8px;
-        padding: 12px 16px;
-        margin-bottom: 12px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    }
+    h1, h2, h3 { color: #00E5FF !important; font-weight: 900; } 
+    div[data-testid="stMetricValue"] { color: #00FFA3 !important; font-size: 28px; } 
+    .dataframe { border: 1px solid #1a2639; width: 100%; }
     </style>
 """, unsafe_allow_html=True)
 
 st.title("⚡ MASTER CONTROL CENTER")
-st.write("---")
 
-# ==========================================
-# 🚀 DATA LOADING & MERGING (ទាញយកទិន្នន័យទាំងអស់មកវិញ)
-# ==========================================
-@st.cache_data(ttl=10)
+# Load Data
+@st.cache_data(ttl=5)
 def load_all_licenses():
-    df_list = []
-    # ១. ទាញពី Table ថ្មី user_licenses
-    try:
-        res1 = supabase.table("user_licenses").select("*").execute()
-        if res1.data:
-            d1 = pd.DataFrame(res1.data)
-            d1['source_table'] = 'user_licenses'
-            df_list.append(d1)
-    except: pass
-    
-    # ២. ទាញពី Table ចាស់ mt5_licenses (ដើម្បីកុំឱ្យបាត់ទិន្នន័យចាស់)
-    try:
-        res2 = supabase.table("mt5_licenses").select("*").execute()
-        if res2.data:
-            d2 = pd.DataFrame(res2.data)
-            d2['source_table'] = 'mt5_licenses'
-            df_list.append(d2)
-    except: pass
-    
-    if df_list:
-        combined_df = pd.concat(df_list, ignore_index=True)
-        # លុបទិន្នន័យស្ទួនដោយយក Table ថ្មីជាចម្បង
-        combined_df = combined_df.drop_duplicates(subset=['account_number'], keep='first')
-        return combined_df
-    return pd.DataFrame()
+    res = supabase.table("user_licenses").select("*").execute()
+    return pd.DataFrame(res.data) if res.data else pd.DataFrame()
 
 licenses_df = load_all_licenses()
 
@@ -80,12 +39,12 @@ def fetch_live_data():
     headers = {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
     try:
         r = requests.get(endpoint, headers=headers, timeout=5)
-        if r.status_code == 200: return r.json()
+        return r.json() if r.status_code == 200 else []
     except: return []
-    return []
 
 live_df = pd.DataFrame(fetch_live_data())
 
+# Helper Functions
 def safe_float(val):
     try:
         if pd.isna(val) or val is None: return 0.0
@@ -98,197 +57,72 @@ def safe_int(val):
         return int(float(val))
     except: return 0
 
-# ==========================================
-# CREATING TABS
-# ==========================================
-tab_dashboard, tab_license_center = st.tabs(["📊 UNIFIED LIVE SYSTEMS", "🔑 LICENSE MANAGEMENT CENTER"])
+tab1, tab2 = st.tabs(["📊 UNIFIED LIVE SYSTEMS", "🔑 LICENSE MANAGEMENT CENTER"])
 
 # ==========================================
-# 📊 TAB 1: UNIFIED LIVE SYSTEMS
+# TAB 1: LIVE SYSTEMS
 # ==========================================
-with tab_dashboard:
-    st.subheader("💻 ប្រព័ន្ធកំពុងដំណើរការ (UNIFIED LIVE SYSTEMS)")
-
-    def format_status(status_text):
-        if "ONLINE" in str(status_text).upper():
-            return f'<span style="color: #00FFA3; font-weight: bold;">🟢 {status_text}</span>'
-        elif "OFFLINE" in str(status_text).upper() or "FAILED" in str(status_text).upper():
-            return f'<span style="color: #FF3366; font-weight: bold;">🔴 {status_text}</span>'
-        else:
-            return f'<span style="color: #FFAA00; font-weight: bold;">🟡 {status_text}</span>'
-
-    if not licenses_df.empty and 'is_active' in licenses_df.columns:
-        active_df = licenses_df[licenses_df['is_active'] == True]
-        
-        if not active_df.empty:
-            display_list = []
-            total_bal, total_eq, total_prof = 0.0, 0.0, 0.0
-            
-            for index, row in active_df.iterrows():
-                acc = str(row.get('account_number', ''))
-                name = row.get('owner_name', row.get('client_name', 'Auto Registered'))
-                bal, eq, prof, status, last_sync = 0.0, 0.0, 0.0, "OFFLINE", "-"
-                total_pos, today_lots, total_lots_db = 0, 0.0, 0.0
-                t1, t2, t3, t4 = 0.0, 0.0, 0.0, 0.0
-                
-                if not live_df.empty and 'vps_name' in live_df.columns:
-                    match = live_df[live_df['vps_name'].astype(str) == acc]
-                    if not match.empty:
-                        m_data = match.iloc[0]
-                        bal = safe_float(m_data.get('balance'))
-                        eq = safe_float(m_data.get('equity'))
-                        prof = safe_float(m_data.get('profit'))
-                        status = str(m_data.get('status', 'ONLINE'))
-                        last_sync = str(m_data.get('last_updated', '-')).split('.')[0].replace('T', ' ')
-                        total_pos = safe_int(m_data.get('total_pos'))
-                        today_lots = safe_float(m_data.get('today_lots'))
-                        total_lots_db = safe_float(m_data.get('total_lots'))
-                        t1 = safe_float(m_data.get('t_1')); t2 = safe_float(m_data.get('t_2'))
-                        t3 = safe_float(m_data.get('t_3')); t4 = safe_float(m_data.get('t_4'))
-                
-                total_bal += bal; total_eq += eq; total_prof += prof
-                formatted_status = format_status(status)
-
-                display_list.append({
-                    "ID": acc, "Name": name, "Status": formatted_status,
-                    "Balance": f"${bal:,.2f}", "Float P/L": f"${prof:,.2f}", "Active Nodes": total_pos,
-                    "Today Lots": f"{today_lots:.2f}", "Total Lots": f"{total_lots_db:.2f}",
-                    "T-1": f"{t1:.2f}", "T-2": f"{t2:.2f}", "T-3": f"{t3:.2f}", "T-4": f"{t4:.2f}",
-                    "អាប់ដេត": last_sync
-                })
-                
-            colA, colB, colC = st.columns(3)
-            colA.metric("💰 ទឹកប្រាក់សរុប (Net Balance)", f"${total_bal:,.2f}")
-            colB.metric("🛡️ សមតុល្យរួម (Live Equity)", f"${total_eq:,.2f}")
-            colC.metric("📈 ប្រាក់ចំណេញរួម (Float P/L)", f"${total_prof:,.2f}")
-            
-            st.write("")
-            df_to_display = pd.DataFrame(display_list)
-            st.write(df_to_display.to_html(escape=False, index=False), unsafe_allow_html=True)
-            
-            # REMOTE CONTROL SECTION
-            st.write("---")
-            st.subheader("🎮 ប្រព័ន្ធបញ្ជាពីចម្ងាយ (REMOTE COMMAND CENTER)")
-            rc_col1, rc_col2 = st.columns([1, 2])
-            with rc_col1:
-                cmd_target = st.selectbox("🎯 ជ្រើសរើសគណនីគោលដៅ៖", active_df['account_number'], key="remote_acc_select")
-            with rc_col2:
-                st.write("⚡ **Action Panel:**")
-                b1, b2, b3 = st.columns(3)
-                if b1.button("⏸ ផ្អាក (Pause)", use_container_width=True):
-                    supabase.table("user_licenses").update({"bot_command": "PAUSE"}).eq("account_number", cmd_target).execute()
-                    st.success(f"✅ បានផ្ញើពាក្យបញ្ជា PAUSE ទៅ {cmd_target}"); time.sleep(0.5); st.rerun()
-                if b2.button("▶️ បន្ត (Resume)", use_container_width=True):
-                    supabase.table("user_licenses").update({"bot_command": "NONE"}).eq("account_number", cmd_target).execute()
-                    st.success(f"✅ បានផ្ញើពាក្យបញ្ជា RESUME ទៅ {cmd_target}"); time.sleep(0.5); st.rerun()
-                if b3.button("🛑 បិទទាំងអស់ (Close All)", type="primary", use_container_width=True):
-                    supabase.table("user_licenses").update({"bot_command": "CLOSE_ALL"}).eq("account_number", cmd_target).execute()
-                    st.error(f"🚨 បានផ្ញើពាក្យបញ្ជា CLOSE ALL ទៅ {cmd_target}!"); time.sleep(0.5); st.rerun()
-        else:
-            st.info("មិនទាន់មានគណនីណាត្រូវបានអនុញ្ញាតនៅឡើយទេ។")
-    else:
-        st.info("ប្រព័ន្ធកំពុងរង់ចាំទិន្នន័យ...")
-
-# ==============================================================================
-# 🔑 TAB 2: LICENSE MANAGEMENT CENTER (រៀបចំថ្មីឱ្យស្អាត ងាយស្រួលមើល)
-# ==============================================================================
-with tab_license_center:
-    st.subheader("🔑 LICENSE & DATA ANALYTICS EMPIRE")
-    st.write("---")
-    
-    # ------------------------------------------
-    # 📈 ក្រាហ្វវិភាគប្រាក់ចំណេញ (រៀបចំឱ្យតូចល្មម មិនរញ៉េរញ៉ៃ)
-    # ------------------------------------------
-    st.markdown("### 📈 Profit Analytics & Drawdown Shield")
-    col_chart, col_alert = st.columns([2, 1])
-    
-    with col_chart:
-        if not live_df.empty and 'profit' in live_df.columns and 'vps_name' in live_df.columns:
-            analytics_df = live_df[['vps_name', 'balance', 'equity', 'profit']].copy()
-            analytics_df['profit'] = analytics_df['profit'].apply(safe_float)
-            top_earners = analytics_df.sort_values(by='profit', ascending=False).head(5)
-            st.caption("🏆 គណនីកំពូលរកប្រាក់ចំណេញបានច្រើនជាងគេ")
-            # ប្រើ Bar chart ពណ៌ស្រដៀង UI
-            st.bar_chart(data=top_earners.set_index('vps_name')['profit'], height=220)
-            
-    with col_alert:
-        st.caption("🚨 Drawdown Risk Alerts (> 15%)")
-        danger_found = False
-        if not live_df.empty and 'balance' in live_df.columns:
-            for _, b_row in analytics_df.iterrows():
-                bal = safe_float(b_row['balance'])
-                eq = safe_float(b_row['equity'])
-                if bal > 0:
-                    dd_pct = ((bal - eq) / bal) * 100
-                    if dd_pct >= 15.0:
-                        st.error(f"⚠️ **Account: {b_row['vps_name']}**\nDrawdown: **{dd_pct:.1f}%**")
-                        danger_found = True
-        if not danger_found:
-            st.success("✅ គ្រប់គណនីទាំងអស់មានសុវត្ថិភាពល្អ។")
-
-    st.write("---")
-    
-    # ------------------------------------------
-    # 🔍 ស្វែងរក និងគ្រប់គ្រងអតិថិជន (Grid 2 Column)
-    # ------------------------------------------
-    st.markdown("### 🔍 Quick Search Customer Database")
-    search_q = st.text_input("ស្វែងរកតាមលេខ Account ID ឬ ឈ្មោះអតិថិជន:", placeholder="វាយបញ្ចូលទីនេះ...")
-
-    st.write("")
+with tab1:
+    st.subheader("💻 ប្រព័ន្ធកំពុងដំណើរការ")
     if not licenses_df.empty:
-        if search_q:
-            filtered_licenses = licenses_df[
-                licenses_df['account_number'].astype(str).str.contains(search_q) | 
-                licenses_df['owner_name'].astype(str).str.contains(search_q, case=False, na=False) |
-                licenses_df['client_name'].astype(str).str.contains(search_q, case=False, na=False)
-            ]
-        else:
-            filtered_licenses = licenses_df
-
-        st.markdown(f"📊 លទ្ធផលសរុប៖ **{len(filtered_licenses)} គណនី**")
+        active_df = licenses_df[licenses_df['is_active'] == True]
+        display_data = []
+        for i, row in enumerate(active_df.iterrows(), 1):
+            r = row[1]
+            acc = str(r.get('account_number', ''))
+            match = live_df[live_df['vps_name'].astype(str) == acc] if not live_df.empty else pd.DataFrame()
+            status = match.iloc[0]['status'] if not match.empty else "OFFLINE"
+            display_data.append({
+                "No.": i,
+                "ID": acc,
+                "Name": r.get('owner_name', 'N/A'),
+                "Status": status,
+                "Balance": match.iloc[0]['balance'] if not match.empty else 0
+            })
+        st.table(pd.DataFrame(display_data))
         
-        # 🚀 រៀបចំជា ២ ជួរ (2 Columns Grid) ដើម្បីកុំឱ្យវែងអន្លាយ
-        grid_cols = st.columns(2)
-        
-        for idx, row in filtered_licenses.iterrows():
-            col_idx = idx % 2 # បែងចែកដាក់ឆ្វេងស្តាំ
-            with grid_cols[col_idx]:
-                acc_id = row.get('account_number', 'Unknown')
-                owner = row.get('owner_name', row.get('client_name', 'Unknown User'))
-                hwid = str(row.get('hwid', 'No HWID Bound'))[:15] + "..." if row.get('hwid') else "No HWID"
-                is_active = row.get('is_active', False)
-                tbl_source = row.get('source_table', 'user_licenses')
-                
-                status_text = "<span style='color:#00FFA3;'>● ACTIVE</span>" if is_active else "<span style='color:#FFAA00;'>● PENDING</span>"
-                
-                st.markdown(f"""
-                <div class="client-card">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-size:16px; color:#00E5FF;"><b>{owner}</b></span>
-                        <b>{status_text}</b>
-                    </div>
-                    <span style="font-size:13px;">🆔 Exness ID: <b>{acc_id}</b> | 📂 Table: {tbl_source}</span><br>
-                    <span style="font-size:11px; color:#7f8c8d;">🖥️ HWID: {hwid}</span>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # ប៊ូតុង Approve & Revoke តូចល្មមស្អាត
-                btn_c1, btn_c2 = st.columns(2)
-                if btn_c1.button("✅ Approve", key=f"app_{acc_id}_{idx}", use_container_width=True, disabled=is_active):
-                    supabase.table(tbl_source).update({"is_active": True}).eq("account_number", acc_id).execute()
-                    st.success("Approved!"); time.sleep(0.3); st.rerun()
-                if btn_c2.button("🚫 Revoke", key=f"rev_{acc_id}_{idx}", type="primary", use_container_width=True, disabled=not is_active):
-                    supabase.table(tbl_source).update({"is_active": False}).eq("account_number", acc_id).execute()
-                    st.error("Revoked!"); time.sleep(0.3); st.rerun()
-                st.write("")
-    else:
-        st.info("មិនទាន់មានទិន្នន័យអាជ្ញាប័ណ្ណទេ។")
+        st.write("---")
+        with st.expander("⚙️ កែប្រែឈ្មោះអតិថិជន"):
+            target = st.selectbox("ជ្រើសរើសគណនី:", active_df['account_number'])
+            new_name = st.text_input("ឈ្មោះថ្មី:")
+            if st.button("រក្សាទុកឈ្មោះថ្មី"):
+                supabase.table("user_licenses").update({"owner_name": new_name}).eq("account_number", target).execute()
+                st.rerun()
 
 # ==========================================
-# 🔄 REFRESH BUTTON
+# TAB 2: LICENSE MANAGEMENT (Table View)
 # ==========================================
-st.write("---")
-col_R1, col_R2, col_R3 = st.columns([1, 2, 1])
-with col_R2:
-    if st.button("🔄 REFRESH ALL DATA", use_container_width=True):
+with tab2:
+    st.subheader("🔑 LICENSE MANAGEMENT CENTER")
+    search = st.text_input("🔍 ស្វែងរកអតិថិជន:", placeholder="វាយលេខ Account ឬឈ្មោះ...")
+    
+    df_show = licenses_df.copy()
+    if search:
+        df_show = df_show[df_show['account_number'].astype(str).str.contains(search) | 
+                          df_show['owner_name'].astype(str).str.contains(search, case=False, na=False)]
+    
+    # បង្ហាញជាតារាងស្អាត
+    table_data = []
+    for i, row in df_show.iterrows():
+        table_data.append({
+            "No.": i+1,
+            "ID": row.get('account_number'),
+            "Name": row.get('owner_name'),
+            "Status": "✅ ACTIVE" if row.get('is_active') else "🟡 PENDING"
+        })
+    st.table(pd.DataFrame(table_data))
+    
+    # ប៊ូតុងបញ្ជាសម្រាប់ Approve/Revoke
+    st.write("---")
+    st.markdown("### ⚡ សកម្មភាពរហ័ស")
+    target_acc = st.text_input("បញ្ចូល ID ដើម្បី Approve/Revoke:")
+    col1, col2 = st.columns(2)
+    if col1.button("✅ Approve"):
+        supabase.table("user_licenses").update({"is_active": True}).eq("account_number", target_acc).execute()
         st.rerun()
+    if col2.button("🚫 Revoke"):
+        supabase.table("user_licenses").update({"is_active": False}).eq("account_number", target_acc).execute()
+        st.rerun()
+
+if st.button("🔄 REFRESH DATA"):
+    st.rerun()
