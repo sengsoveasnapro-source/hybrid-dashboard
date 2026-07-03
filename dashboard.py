@@ -4,12 +4,17 @@ import pandas as pd
 from supabase import create_client, Client
 from datetime import datetime
 import time 
+import os
+from dotenv import load_dotenv
+load_dotenv() 
+
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 # ==========================================
 # ភ្ជាប់ទៅកាន់ Supabase
 # ==========================================
 SUPABASE_URL = "https://bqozwahxwhnpnasixxps.supabase.co"
-SUPABASE_KEY = "sb_publishable_haSMxbZUbxaV65oU4QaOQQ_HrwTS3Tl" 
+# SUPABASE_KEY = "" 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 st.set_page_config(page_title="Hybrid Control Center", page_icon="⚡", layout="wide")
@@ -26,7 +31,7 @@ st.markdown("""
     .dataframe td { padding: 10px; border-bottom: 1px solid #1a2639; }
     div.stButton > button { font-weight: bold; border-radius: 6px; }
     
-    /* Modern Compact Card Style */
+    /* Modern Compact Card Style (លែងសូវប្រើ តែទុកក្រែងចង់ប្រើកន្លែងផ្សេង) */
     .client-card {
         background: linear-gradient(135deg, #0b1118 0%, #111a26 100%);
         border-left: 4px solid #00E5FF;
@@ -43,7 +48,7 @@ st.title("⚡ MASTER CONTROL CENTER")
 st.write("---")
 
 # ==========================================
-# 🚀 DATA LOADING & MERGING
+# 🚀 DATA LOADING & MERGING 
 # ==========================================
 @st.cache_data(ttl=10)
 def load_all_licenses():
@@ -57,7 +62,7 @@ def load_all_licenses():
             df_list.append(d1)
     except: pass
     
-    # ២. ទាញពី Table ចាស់ mt5_licenses
+    # ២. ទាញពី Table ចាស់ mt5_licenses 
     try:
         res2 = supabase.table("mt5_licenses").select("*").execute()
         if res2.data:
@@ -124,6 +129,7 @@ with tab_dashboard:
             display_list = []
             total_bal, total_eq, total_prof = 0.0, 0.0, 0.0
             
+            # បន្ថែមលេខរៀង (No.)
             row_index = 1
             
             for index, row in active_df.iterrows():
@@ -131,7 +137,7 @@ with tab_dashboard:
                 name = row.get('owner_name', row.get('client_name', 'Auto Registered'))
                 bal, eq, prof, status, last_sync = 0.0, 0.0, 0.0, "OFFLINE", "-"
                 total_pos, today_lots, total_lots_db = 0, 0.0, 0.0
-                t1, t2, t3, t4, t5, t6, t7 = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+                t1, t2, t3, t4 = 0.0, 0.0, 0.0, 0.0
                 
                 if not live_df.empty and 'vps_name' in live_df.columns:
                     match = live_df[live_df['vps_name'].astype(str) == acc]
@@ -147,9 +153,6 @@ with tab_dashboard:
                         total_lots_db = safe_float(m_data.get('total_lots'))
                         t1 = safe_float(m_data.get('t_1')); t2 = safe_float(m_data.get('t_2'))
                         t3 = safe_float(m_data.get('t_3')); t4 = safe_float(m_data.get('t_4'))
-                        # ទាញយកទិន្នន័យ T-5 ដល់ T-7
-                        t5 = safe_float(m_data.get('t_5')); t6 = safe_float(m_data.get('t_6'))
-                        t7 = safe_float(m_data.get('t_7'))
                 
                 total_bal += bal; total_eq += eq; total_prof += prof
                 formatted_status = format_status(status)
@@ -160,7 +163,6 @@ with tab_dashboard:
                     "Balance": f"${bal:,.2f}", "Float P/L": f"${prof:,.2f}", "Active Nodes": total_pos,
                     "Today Lots": f"{today_lots:.2f}", "Total Lots": f"{total_lots_db:.2f}",
                     "T-1": f"{t1:.2f}", "T-2": f"{t2:.2f}", "T-3": f"{t3:.2f}", "T-4": f"{t4:.2f}",
-                    "T-5": f"{t5:.2f}", "T-6": f"{t6:.2f}", "T-7": f"{t7:.2f}",
                     "អាប់ដេត": last_sync
                 })
                 row_index += 1
@@ -193,24 +195,26 @@ with tab_dashboard:
                     supabase.table("user_licenses").update({"bot_command": "CLOSE_ALL"}).eq("account_number", cmd_target).execute()
                     st.error(f"🚨 បានផ្ញើពាក្យបញ្ជា CLOSE ALL ទៅ {cmd_target}!"); time.sleep(0.5); st.rerun()
             
-            # EDIT NAME SECTION 
+            # EDIT NAME SECTION (ទាញមកវិញតាមសំណូមពរ)
             st.write("---")
             st.subheader("✏️ កែប្រែឈ្មោះអតិថិជន (EDIT CLIENT NAME)")
             edit_col1, edit_col2, edit_col3 = st.columns([1, 1.5, 1])
             with edit_col1:
                 edit_target = st.selectbox("🎯 ជ្រើសរើសគណនីដើម្បីកែឈ្មោះ៖", licenses_df['account_number'], key="edit_name_select")
             with edit_col2:
+                # ទាញឈ្មោះចាស់មកបង្ហាញ
                 old_name = licenses_df[licenses_df['account_number'] == edit_target].iloc[0].get('owner_name', '')
                 if not old_name:
                     old_name = licenses_df[licenses_df['account_number'] == edit_target].iloc[0].get('client_name', '')
                 new_name = st.text_input("📝 បញ្ចូលឈ្មោះថ្មី:", value=old_name, key="new_name_input")
             with edit_col3:
-                st.write("") 
+                st.write("") # សម្រាប់តម្រឹមអោយស្មើ Text Input
                 st.write("")
                 if st.button("💾 រក្សាទុក (Save)", use_container_width=True):
                     if new_name:
                         target_row = licenses_df[licenses_df['account_number'] == edit_target].iloc[0]
                         tbl = target_row['source_table']
+                        # Update ទាំង owner_name និង client_name ដើម្បីកុំអោយ Error បើវាអត់មាន Column មួយណា
                         try:
                             supabase.table(tbl).update({"owner_name": new_name}).eq("account_number", edit_target).execute()
                         except: pass
@@ -225,7 +229,7 @@ with tab_dashboard:
         st.info("ប្រព័ន្ធកំពុងរង់ចាំទិន្នន័យ...")
 
 # ==============================================================================
-# 🔑 TAB 2: LICENSE MANAGEMENT CENTER 
+# 🔑 TAB 2: LICENSE MANAGEMENT CENTER (រៀបចំថ្មីជាទម្រង់តារាង)
 # ==============================================================================
 with tab_license_center:
     st.subheader("🔑 LICENSE & DATA ANALYTICS EMPIRE")
@@ -263,7 +267,7 @@ with tab_license_center:
     st.write("---")
     
     # ------------------------------------------
-    # 🔍 ស្វែងរក និងគ្រប់គ្រងអតិថិជន
+    # 🔍 ស្វែងរក និងគ្រប់គ្រងអតិថិជន (រៀបជាជួរ/តារាង)
     # ------------------------------------------
     st.markdown("### 📋 Quick Search & License Database")
     search_q = st.text_input("ស្វែងរកតាមលេខ Account ID ឬ ឈ្មោះអតិថិជន:", placeholder="វាយបញ្ចូលទីនេះ...")
@@ -281,6 +285,7 @@ with tab_license_center:
 
         st.markdown(f"📊 លទ្ធផលសរុប៖ **{len(filtered_licenses)} គណនី**")
         
+        # រៀបចំទម្រង់ជាជួរ (Row-based list / Table-like style) ងាយស្រួលមើល
         st.markdown("<hr style='margin: 5px 0px; border: 1px solid #1a2639'>", unsafe_allow_html=True)
         
         # Header Row
@@ -325,6 +330,7 @@ with tab_license_center:
                     time.sleep(0.3)
                     st.rerun()
             
+            # បន្ទាត់ខណ្ឌចែកជួរនីមួយៗ
             st.markdown("<hr style='margin: 5px 0px; border-top: 1px solid #1a2639'>", unsafe_allow_html=True)
             
     else:
