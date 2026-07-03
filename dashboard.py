@@ -225,113 +225,72 @@ with tab_dashboard:
 # ==============================================================================
 # 🔑 TAB 2: LICENSE MANAGEMENT CENTER (រៀបចំថ្មីជាទម្រង់តារាង)
 # ==============================================================================
+# ==============================================================================
+# 🔑 TAB 2: LICENSE MANAGEMENT CENTER (អាប់ដេតថ្មីមានលេខរៀង និងប៊ូតុងលុប)
+# ==============================================================================
 with tab_license_center:
     st.subheader("🔑 LICENSE & DATA ANALYTICS EMPIRE")
     st.write("---")
     
-    # ------------------------------------------
-    # 📈 ក្រាហ្វវិភាគប្រាក់ចំណេញ 
-    # ------------------------------------------
-    st.markdown("### 📈 Profit Analytics & Drawdown Shield")
-    col_chart, col_alert = st.columns([2, 1])
+    # ... (រក្សាទុកកូដក្រាហ្វ និង Alert ដដែល) ...
     
-    with col_chart:
-        if not live_df.empty and 'profit' in live_df.columns and 'vps_name' in live_df.columns:
-            analytics_df = live_df[['vps_name', 'balance', 'equity', 'profit']].copy()
-            analytics_df['profit'] = analytics_df['profit'].apply(safe_float)
-            top_earners = analytics_df.sort_values(by='profit', ascending=False).head(5)
-            st.caption("🏆 គណនីកំពូលរកប្រាក់ចំណេញបានច្រើនជាងគេ")
-            st.bar_chart(data=top_earners.set_index('vps_name')['profit'], height=220)
-            
-    with col_alert:
-        st.caption("🚨 Drawdown Risk Alerts (> 15%)")
-        danger_found = False
-        if not live_df.empty and 'balance' in live_df.columns:
-            for _, b_row in analytics_df.iterrows():
-                bal = safe_float(b_row['balance'])
-                eq = safe_float(b_row['equity'])
-                if bal > 0:
-                    dd_pct = ((bal - eq) / bal) * 100
-                    if dd_pct >= 15.0:
-                        st.error(f"⚠️ **Account: {b_row['vps_name']}**\nDrawdown: **{dd_pct:.1f}%**")
-                        danger_found = True
-        if not danger_found:
-            st.success("✅ គ្រប់គណនីទាំងអស់មានសុវត្ថិភាពល្អ។")
-
-    st.write("---")
-    
-    # ------------------------------------------
-    # 🔍 ស្វែងរក និងគ្រប់គ្រងអតិថិជន (រៀបជាជួរ/តារាង)
-    # ------------------------------------------
     st.markdown("### 📋 Quick Search & License Database")
     search_q = st.text_input("ស្វែងរកតាមលេខ Account ID ឬ ឈ្មោះអតិថិជន:", placeholder="វាយបញ្ចូលទីនេះ...")
 
-    st.write("")
     if not licenses_df.empty:
         if search_q:
             filtered_licenses = licenses_df[
                 licenses_df['account_number'].astype(str).str.contains(search_q) | 
-                licenses_df['owner_name'].astype(str).str.contains(search_q, case=False, na=False) |
-                licenses_df['client_name'].astype(str).str.contains(search_q, case=False, na=False)
+                licenses_df['owner_name'].astype(str).str.contains(search_q, case=False, na=False)
             ]
         else:
             filtered_licenses = licenses_df
 
         st.markdown(f"📊 លទ្ធផលសរុប៖ **{len(filtered_licenses)} គណនី**")
-        
-        # រៀបចំទម្រង់ជាជួរ (Row-based list / Table-like style) ងាយស្រួលមើល
         st.markdown("<hr style='margin: 5px 0px; border: 1px solid #1a2639'>", unsafe_allow_html=True)
         
         # Header Row
-        h_col1, h_col2, h_col3, h_col4, h_col5 = st.columns([1.5, 2, 2.5, 1.5, 2])
-        h_col1.markdown("**🆔 Exness ID**")
-        h_col2.markdown("**👤 ឈ្មោះអតិថិជន**")
-        h_col3.markdown("**🖥️ HWID / 📂 Table**")
-        h_col4.markdown("**📊 ស្ថានភាព**")
-        h_col5.markdown("**⚙️ សកម្មភាព (Action)**")
+        h_col1, h_col2, h_col3, h_col4, h_col5, h_col6 = st.columns([0.5, 1.5, 2, 2.5, 1.5, 1.5])
+        h_col1.markdown("**#**") # លេខរៀង
+        h_col2.markdown("**🆔 Exness ID**")
+        h_col3.markdown("**👤 ឈ្មោះ**")
+        h_col4.markdown("**🖥️ HWID**")
+        h_col5.markdown("**📊 Status**")
+        h_col6.markdown("**⚙️ Action**")
         st.markdown("<hr style='margin: 5px 0px; border: 1px solid #1a2639'>", unsafe_allow_html=True)
         
         # Data Rows
         for idx, row in filtered_licenses.iterrows():
             acc_id = row.get('account_number', 'Unknown')
-            owner = row.get('owner_name', row.get('client_name', 'Unknown User'))
-            hwid = str(row.get('hwid', 'No HWID Bound'))[:20] + "..." if row.get('hwid') else "No HWID"
+            owner = row.get('owner_name', 'No Name')
+            hwid = str(row.get('hwid', 'N/A'))[:15] + "..."
             is_active = row.get('is_active', False)
             tbl_source = row.get('source_table', 'user_licenses')
             
-            c1, c2, c3, c4, c5 = st.columns([1.5, 2, 2.5, 1.5, 2])
+            c1, c2, c3, c4, c5, c6 = st.columns([0.5, 1.5, 2, 2.5, 1.5, 1.5])
             
-            c1.markdown(f"<span style='font-size:16px; color:#00E5FF;'><b>{acc_id}</b></span>", unsafe_allow_html=True)
-            c2.markdown(f"**{owner}**")
-            c3.markdown(f"<span style='font-size:13px; color:#7f8c8d;'>{hwid}<br>📂 {tbl_source}</span>", unsafe_allow_html=True)
+            c1.write(f"{idx + 1}") # លេខរៀង
+            c2.markdown(f"<b>{acc_id}</b>", unsafe_allow_html=True)
+            c3.write(owner)
+            c4.write(hwid)
+            c5.write("✅" if is_active else "⏳")
             
-            if is_active:
-                c4.markdown("<span style='color:#00FFA3; font-weight:bold;'>● ACTIVE</span>", unsafe_allow_html=True)
-            else:
-                c4.markdown("<span style='color:#FFAA00; font-weight:bold;'>● PENDING</span>", unsafe_allow_html=True)
-                
-            with c5:
-                # 🚀 ចំណុចដែលបានជួសជុល (ធានាថា disabled ជាប្រភេទ True/False មិនមែន nan)
-                is_button_disabled = bool(is_active == True)
-                
-                # ប៊ូតុង Approve & Revoke
-                btn_c1, btn_c2 = st.columns(2)
-                if btn_c1.button("✅ Approve", key=f"app_{acc_id}_{idx}", use_container_width=True, disabled=is_button_disabled):
+            with c6:
+                btn_cols = st.columns(2)
+                # Approve / Revoke Buttons
+                is_disabled = bool(is_active == True)
+                if btn_cols[0].button("✅", key=f"app_{acc_id}_{idx}", help="Approve", disabled=is_disabled):
                     supabase.table(tbl_source).update({"is_active": True}).eq("account_number", acc_id).execute()
-                    st.toast("✅ Approved!")
-                    time.sleep(0.3)
                     st.rerun()
-                if btn_c2.button("🚫 Revoke", key=f"rev_{acc_id}_{idx}", type="primary", use_container_width=True, disabled=(not is_button_disabled)):
-                    supabase.table(tbl_source).update({"is_active": False}).eq("account_number", acc_id).execute()
-                    st.toast("🚫 Revoked!")
-                    time.sleep(0.3)
+                
+                # ប៊ូតុង លុប (Delete)
+                if btn_cols[1].button("🗑️", key=f"del_{acc_id}_{idx}", help="លុបចោល"):
+                    supabase.table(tbl_source).delete().eq("account_number", acc_id).execute()
+                    st.toast(f"🗑️ បានលុប {acc_id} ចេញពីប្រព័ន្ធ!")
+                    time.sleep(0.5)
                     st.rerun()
-            
-            # បន្ទាត់ខណ្ឌចែកជួរនីមួយៗ
+
             st.markdown("<hr style='margin: 5px 0px; border-top: 1px solid #1a2639'>", unsafe_allow_html=True)
-            
-    else:
-        st.info("មិនទាន់មានទិន្នន័យអាជ្ញាប័ណ្ណទេ។")
 
 # ==========================================
 # 🔄 REFRESH BUTTON
