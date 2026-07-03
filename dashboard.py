@@ -21,16 +21,16 @@ st.markdown("""
     h1, h2, h3 { color: #00E5FF !important; font-weight: 900; text-shadow: 0px 0px 10px rgba(0, 229, 255, 0.4); } 
     div[data-testid="stMetricValue"] { color: #00FFA3 !important; font-size: 30px; font-weight: bold; } 
     div[data-testid="stMetricLabel"] { color: #FFAA00 !important; font-size: 14px; font-weight: bold; } 
-    .dataframe { border: 1px solid #1a2639; }
+    .dataframe { border: 1px solid #1a2639; width: 100%; text-align: left; }
+    .dataframe th { background-color: #111a26; color: #00E5FF; padding: 10px; }
+    .dataframe td { padding: 10px; border-bottom: 1px solid #1a2639; }
     div.stButton > button { font-weight: bold; border-radius: 6px; }
     
-    /* Modern Compact Card Style */
+    /* Modern Compact Card Style (លែងសូវប្រើ តែទុកក្រែងចង់ប្រើកន្លែងផ្សេង) */
     .client-card {
         background: linear-gradient(135deg, #0b1118 0%, #111a26 100%);
         border-left: 4px solid #00E5FF;
-        border-top: 1px solid #1a2639;
-        border-right: 1px solid #1a2639;
-        border-bottom: 1px solid #1a2639;
+        border: 1px solid #1a2639;
         border-radius: 8px;
         padding: 12px 16px;
         margin-bottom: 12px;
@@ -43,7 +43,7 @@ st.title("⚡ MASTER CONTROL CENTER")
 st.write("---")
 
 # ==========================================
-# 🚀 DATA LOADING & MERGING (ទាញយកទិន្នន័យទាំងអស់មកវិញ)
+# 🚀 DATA LOADING & MERGING 
 # ==========================================
 @st.cache_data(ttl=10)
 def load_all_licenses():
@@ -57,7 +57,7 @@ def load_all_licenses():
             df_list.append(d1)
     except: pass
     
-    # ២. ទាញពី Table ចាស់ mt5_licenses (ដើម្បីកុំឱ្យបាត់ទិន្នន័យចាស់)
+    # ២. ទាញពី Table ចាស់ mt5_licenses 
     try:
         res2 = supabase.table("mt5_licenses").select("*").execute()
         if res2.data:
@@ -124,6 +124,9 @@ with tab_dashboard:
             display_list = []
             total_bal, total_eq, total_prof = 0.0, 0.0, 0.0
             
+            # បន្ថែមលេខរៀង (No.)
+            row_index = 1
+            
             for index, row in active_df.iterrows():
                 acc = str(row.get('account_number', ''))
                 name = row.get('owner_name', row.get('client_name', 'Auto Registered'))
@@ -150,12 +153,14 @@ with tab_dashboard:
                 formatted_status = format_status(status)
 
                 display_list.append({
-                    "ID": acc, "Name": name, "Status": formatted_status,
+                    "ល.រ": row_index,
+                    "Account ID": acc, "Name": name, "Status": formatted_status,
                     "Balance": f"${bal:,.2f}", "Float P/L": f"${prof:,.2f}", "Active Nodes": total_pos,
                     "Today Lots": f"{today_lots:.2f}", "Total Lots": f"{total_lots_db:.2f}",
                     "T-1": f"{t1:.2f}", "T-2": f"{t2:.2f}", "T-3": f"{t3:.2f}", "T-4": f"{t4:.2f}",
                     "អាប់ដេត": last_sync
                 })
+                row_index += 1
                 
             colA, colB, colC = st.columns(3)
             colA.metric("💰 ទឹកប្រាក់សរុប (Net Balance)", f"${total_bal:,.2f}")
@@ -184,20 +189,49 @@ with tab_dashboard:
                 if b3.button("🛑 បិទទាំងអស់ (Close All)", type="primary", use_container_width=True):
                     supabase.table("user_licenses").update({"bot_command": "CLOSE_ALL"}).eq("account_number", cmd_target).execute()
                     st.error(f"🚨 បានផ្ញើពាក្យបញ្ជា CLOSE ALL ទៅ {cmd_target}!"); time.sleep(0.5); st.rerun()
+            
+            # EDIT NAME SECTION (ទាញមកវិញតាមសំណូមពរ)
+            st.write("---")
+            st.subheader("✏️ កែប្រែឈ្មោះអតិថិជន (EDIT CLIENT NAME)")
+            edit_col1, edit_col2, edit_col3 = st.columns([1, 1.5, 1])
+            with edit_col1:
+                edit_target = st.selectbox("🎯 ជ្រើសរើសគណនីដើម្បីកែឈ្មោះ៖", licenses_df['account_number'], key="edit_name_select")
+            with edit_col2:
+                # ទាញឈ្មោះចាស់មកបង្ហាញ
+                old_name = licenses_df[licenses_df['account_number'] == edit_target].iloc[0].get('owner_name', '')
+                if not old_name:
+                    old_name = licenses_df[licenses_df['account_number'] == edit_target].iloc[0].get('client_name', '')
+                new_name = st.text_input("📝 បញ្ចូលឈ្មោះថ្មី:", value=old_name, key="new_name_input")
+            with edit_col3:
+                st.write("") # សម្រាប់តម្រឹមអោយស្មើ Text Input
+                st.write("")
+                if st.button("💾 រក្សាទុក (Save)", use_container_width=True):
+                    if new_name:
+                        target_row = licenses_df[licenses_df['account_number'] == edit_target].iloc[0]
+                        tbl = target_row['source_table']
+                        # Update ទាំង owner_name និង client_name ដើម្បីកុំអោយ Error បើវាអត់មាន Column មួយណា
+                        try:
+                            supabase.table(tbl).update({"owner_name": new_name}).eq("account_number", edit_target).execute()
+                        except: pass
+                        try:
+                            supabase.table(tbl).update({"client_name": new_name}).eq("account_number", edit_target).execute()
+                        except: pass
+                        st.success(f"✅ បានប្តូរឈ្មោះទៅជា {new_name} រួចរាល់!"); time.sleep(0.5); st.rerun()
+
         else:
             st.info("មិនទាន់មានគណនីណាត្រូវបានអនុញ្ញាតនៅឡើយទេ។")
     else:
         st.info("ប្រព័ន្ធកំពុងរង់ចាំទិន្នន័យ...")
 
 # ==============================================================================
-# 🔑 TAB 2: LICENSE MANAGEMENT CENTER (រៀបចំថ្មីឱ្យស្អាត ងាយស្រួលមើល)
+# 🔑 TAB 2: LICENSE MANAGEMENT CENTER (រៀបចំថ្មីជាទម្រង់តារាង)
 # ==============================================================================
 with tab_license_center:
     st.subheader("🔑 LICENSE & DATA ANALYTICS EMPIRE")
     st.write("---")
     
     # ------------------------------------------
-    # 📈 ក្រាហ្វវិភាគប្រាក់ចំណេញ (រៀបចំឱ្យតូចល្មម មិនរញ៉េរញ៉ៃ)
+    # 📈 ក្រាហ្វវិភាគប្រាក់ចំណេញ 
     # ------------------------------------------
     st.markdown("### 📈 Profit Analytics & Drawdown Shield")
     col_chart, col_alert = st.columns([2, 1])
@@ -208,7 +242,6 @@ with tab_license_center:
             analytics_df['profit'] = analytics_df['profit'].apply(safe_float)
             top_earners = analytics_df.sort_values(by='profit', ascending=False).head(5)
             st.caption("🏆 គណនីកំពូលរកប្រាក់ចំណេញបានច្រើនជាងគេ")
-            # ប្រើ Bar chart ពណ៌ស្រដៀង UI
             st.bar_chart(data=top_earners.set_index('vps_name')['profit'], height=220)
             
     with col_alert:
@@ -229,9 +262,9 @@ with tab_license_center:
     st.write("---")
     
     # ------------------------------------------
-    # 🔍 ស្វែងរក និងគ្រប់គ្រងអតិថិជន (Grid 2 Column)
+    # 🔍 ស្វែងរក និងគ្រប់គ្រងអតិថិជន (រៀបជាជួរ/តារាង)
     # ------------------------------------------
-    st.markdown("### 🔍 Quick Search Customer Database")
+    st.markdown("### 📋 Quick Search & License Database")
     search_q = st.text_input("ស្វែងរកតាមលេខ Account ID ឬ ឈ្មោះអតិថិជន:", placeholder="វាយបញ្ចូលទីនេះ...")
 
     st.write("")
@@ -247,40 +280,54 @@ with tab_license_center:
 
         st.markdown(f"📊 លទ្ធផលសរុប៖ **{len(filtered_licenses)} គណនី**")
         
-        # 🚀 រៀបចំជា ២ ជួរ (2 Columns Grid) ដើម្បីកុំឱ្យវែងអន្លាយ
-        grid_cols = st.columns(2)
+        # រៀបចំទម្រង់ជាជួរ (Row-based list / Table-like style) ងាយស្រួលមើល
+        st.markdown("<hr style='margin: 5px 0px; border: 1px solid #1a2639'>", unsafe_allow_html=True)
         
+        # Header Row
+        h_col1, h_col2, h_col3, h_col4, h_col5 = st.columns([1.5, 2, 2.5, 1.5, 2])
+        h_col1.markdown("**🆔 Exness ID**")
+        h_col2.markdown("**👤 ឈ្មោះអតិថិជន**")
+        h_col3.markdown("**🖥️ HWID / 📂 Table**")
+        h_col4.markdown("**📊 ស្ថានភាព**")
+        h_col5.markdown("**⚙️ សកម្មភាព (Action)**")
+        st.markdown("<hr style='margin: 5px 0px; border: 1px solid #1a2639'>", unsafe_allow_html=True)
+        
+        # Data Rows
         for idx, row in filtered_licenses.iterrows():
-            col_idx = idx % 2 # បែងចែកដាក់ឆ្វេងស្តាំ
-            with grid_cols[col_idx]:
-                acc_id = row.get('account_number', 'Unknown')
-                owner = row.get('owner_name', row.get('client_name', 'Unknown User'))
-                hwid = str(row.get('hwid', 'No HWID Bound'))[:15] + "..." if row.get('hwid') else "No HWID"
-                is_active = row.get('is_active', False)
-                tbl_source = row.get('source_table', 'user_licenses')
+            acc_id = row.get('account_number', 'Unknown')
+            owner = row.get('owner_name', row.get('client_name', 'Unknown User'))
+            hwid = str(row.get('hwid', 'No HWID Bound'))[:20] + "..." if row.get('hwid') else "No HWID"
+            is_active = row.get('is_active', False)
+            tbl_source = row.get('source_table', 'user_licenses')
+            
+            c1, c2, c3, c4, c5 = st.columns([1.5, 2, 2.5, 1.5, 2])
+            
+            c1.markdown(f"<span style='font-size:16px; color:#00E5FF;'><b>{acc_id}</b></span>", unsafe_allow_html=True)
+            c2.markdown(f"**{owner}**")
+            c3.markdown(f"<span style='font-size:13px; color:#7f8c8d;'>{hwid}<br>📂 {tbl_source}</span>", unsafe_allow_html=True)
+            
+            if is_active:
+                c4.markdown("<span style='color:#00FFA3; font-weight:bold;'>● ACTIVE</span>", unsafe_allow_html=True)
+            else:
+                c4.markdown("<span style='color:#FFAA00; font-weight:bold;'>● PENDING</span>", unsafe_allow_html=True)
                 
-                status_text = "<span style='color:#00FFA3;'>● ACTIVE</span>" if is_active else "<span style='color:#FFAA00;'>● PENDING</span>"
-                
-                st.markdown(f"""
-                <div class="client-card">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-size:16px; color:#00E5FF;"><b>{owner}</b></span>
-                        <b>{status_text}</b>
-                    </div>
-                    <span style="font-size:13px;">🆔 Exness ID: <b>{acc_id}</b> | 📂 Table: {tbl_source}</span><br>
-                    <span style="font-size:11px; color:#7f8c8d;">🖥️ HWID: {hwid}</span>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # ប៊ូតុង Approve & Revoke តូចល្មមស្អាត
+            with c5:
+                # ប៊ូតុង Approve & Revoke
                 btn_c1, btn_c2 = st.columns(2)
                 if btn_c1.button("✅ Approve", key=f"app_{acc_id}_{idx}", use_container_width=True, disabled=is_active):
                     supabase.table(tbl_source).update({"is_active": True}).eq("account_number", acc_id).execute()
-                    st.success("Approved!"); time.sleep(0.3); st.rerun()
+                    st.toast("✅ Approved!")
+                    time.sleep(0.3)
+                    st.rerun()
                 if btn_c2.button("🚫 Revoke", key=f"rev_{acc_id}_{idx}", type="primary", use_container_width=True, disabled=not is_active):
                     supabase.table(tbl_source).update({"is_active": False}).eq("account_number", acc_id).execute()
-                    st.error("Revoked!"); time.sleep(0.3); st.rerun()
-                st.write("")
+                    st.toast("🚫 Revoked!")
+                    time.sleep(0.3)
+                    st.rerun()
+            
+            # បន្ទាត់ខណ្ឌចែកជួរនីមួយៗ
+            st.markdown("<hr style='margin: 5px 0px; border-top: 1px solid #1a2639'>", unsafe_allow_html=True)
+            
     else:
         st.info("មិនទាន់មានទិន្នន័យអាជ្ញាប័ណ្ណទេ។")
 
