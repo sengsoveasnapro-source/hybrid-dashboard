@@ -2,12 +2,20 @@ import streamlit as st
 import pandas as pd
 import requests
 import time
+import os
+from dotenv import load_dotenv
 from supabase import create_client
 
-# ដក load_dotenv ចេញក៏បាន
-# ប្រើ st.secrets ដើម្បីហៅ Key
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+# 🚀 ទាញយកបរិស្ថាន (Environment Variables)
+load_dotenv()
+
+# 🛡️ ប្រព័ន្ធការពារ Error: ព្យាយាមអានពី st.secrets មុន បើអត់មាន អានពី .env វិញ
+try:
+    SUPABASE_URL = st.secrets["SUPABASE_URL"]
+    SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+except Exception:
+    SUPABASE_URL = os.getenv("SUPABASE_URL", "https://bqozwahxwhnpnasixxps.supabase.co")
+    SUPABASE_KEY = os.getenv("SUPABASE_KEY", "") # បើប្រើ .env ត្រូវប្រាកដថាមាន Key ក្នុងនោះ
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -24,17 +32,6 @@ st.markdown("""
     .dataframe th { background-color: #111a26; color: #00E5FF; padding: 10px; }
     .dataframe td { padding: 10px; border-bottom: 1px solid #1a2639; }
     div.stButton > button { font-weight: bold; border-radius: 6px; }
-    
-    /* Modern Compact Card Style (លែងសូវប្រើ តែទុកក្រែងចង់ប្រើកន្លែងផ្សេង) */
-    .client-card {
-        background: linear-gradient(135deg, #0b1118 0%, #111a26 100%);
-        border-left: 4px solid #00E5FF;
-        border: 1px solid #1a2639;
-        border-radius: 8px;
-        padding: 12px 16px;
-        margin-bottom: 12px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -189,7 +186,7 @@ with tab_dashboard:
                     supabase.table("user_licenses").update({"bot_command": "CLOSE_ALL"}).eq("account_number", cmd_target).execute()
                     st.error(f"🚨 បានផ្ញើពាក្យបញ្ជា CLOSE ALL ទៅ {cmd_target}!"); time.sleep(0.5); st.rerun()
             
-            # EDIT NAME SECTION (ទាញមកវិញតាមសំណូមពរ)
+            # EDIT NAME SECTION 
             st.write("---")
             st.subheader("✏️ កែប្រែឈ្មោះអតិថិជន (EDIT CLIENT NAME)")
             edit_col1, edit_col2, edit_col3 = st.columns([1, 1.5, 1])
@@ -208,7 +205,6 @@ with tab_dashboard:
                     if new_name:
                         target_row = licenses_df[licenses_df['account_number'] == edit_target].iloc[0]
                         tbl = target_row['source_table']
-                        # Update ទាំង owner_name និង client_name ដើម្បីកុំអោយ Error បើវាអត់មាន Column មួយណា
                         try:
                             supabase.table(tbl).update({"owner_name": new_name}).eq("account_number", edit_target).execute()
                         except: pass
@@ -223,7 +219,7 @@ with tab_dashboard:
         st.info("ប្រព័ន្ធកំពុងរង់ចាំទិន្នន័យ...")
 
 # ==============================================================================
-# 🔑 TAB 2: LICENSE MANAGEMENT CENTER (រៀបចំថ្មីជាទម្រង់តារាង)
+# 🔑 TAB 2: LICENSE MANAGEMENT CENTER 
 # ==============================================================================
 with tab_license_center:
     st.subheader("🔑 LICENSE & DATA ANALYTICS EMPIRE")
@@ -261,7 +257,7 @@ with tab_license_center:
     st.write("---")
     
     # ------------------------------------------
-    # 🔍 ស្វែងរក និងគ្រប់គ្រងអតិថិជន (រៀបជាជួរ/តារាង)
+    # 🔍 ស្វែងរក និងគ្រប់គ្រងអតិថិជន 
     # ------------------------------------------
     st.markdown("### 📋 Quick Search & License Database")
     search_q = st.text_input("ស្វែងរកតាមលេខ Account ID ឬ ឈ្មោះអតិថិជន:", placeholder="វាយបញ្ចូលទីនេះ...")
@@ -279,7 +275,6 @@ with tab_license_center:
 
         st.markdown(f"📊 លទ្ធផលសរុប៖ **{len(filtered_licenses)} គណនី**")
         
-        # រៀបចំទម្រង់ជាជួរ (Row-based list / Table-like style) ងាយស្រួលមើល
         st.markdown("<hr style='margin: 5px 0px; border: 1px solid #1a2639'>", unsafe_allow_html=True)
         
         # Header Row
@@ -311,7 +306,6 @@ with tab_license_center:
                 c4.markdown("<span style='color:#FFAA00; font-weight:bold;'>● PENDING</span>", unsafe_allow_html=True)
                 
             with c5:
-                # 🚀 ចំណុចដែលបានជួសជុល (ធានាថា disabled ជាប្រភេទ True/False មិនមែន nan)
                 is_button_disabled = bool(is_active == True)
                 
                 # ប៊ូតុង Approve & Revoke
@@ -327,7 +321,6 @@ with tab_license_center:
                     time.sleep(0.3)
                     st.rerun()
             
-            # បន្ទាត់ខណ្ឌចែកជួរនីមួយៗ
             st.markdown("<hr style='margin: 5px 0px; border-top: 1px solid #1a2639'>", unsafe_allow_html=True)
             
     else:
