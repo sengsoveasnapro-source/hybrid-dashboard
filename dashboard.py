@@ -279,7 +279,8 @@ with tab_license_center:
         
         # Header Row
         h_col1, h_col2, h_col3, h_col4, h_col5 = st.columns([1.5, 2, 2.5, 1.5, 2])
-        h_col1.markdown("**🆔 Exness ID**")
+        # 🚀 UPDATE: Added 'No.' header
+        h_col1.markdown("**No. 🆔 Exness ID**")
         h_col2.markdown("**👤 ឈ្មោះអតិថិជន**")
         h_col3.markdown("**🖥️ HWID / 📂 Table**")
         h_col4.markdown("**📊 ស្ថានភាព**")
@@ -287,7 +288,8 @@ with tab_license_center:
         st.markdown("<hr style='margin: 5px 0px; border: 1px solid #1a2639'>", unsafe_allow_html=True)
         
         # Data Rows
-        for idx, row in filtered_licenses.iterrows():
+        # 🚀 UPDATE: Using enumerate to add sequential numbers
+        for row_index, (idx, row) in enumerate(filtered_licenses.iterrows(), start=1):
             acc_id = row.get('account_number', 'Unknown')
             owner = row.get('owner_name', row.get('client_name', 'Unknown User'))
             hwid = str(row.get('hwid', 'No HWID Bound'))[:20] + "..." if row.get('hwid') else "No HWID"
@@ -296,7 +298,8 @@ with tab_license_center:
             
             c1, c2, c3, c4, c5 = st.columns([1.5, 2, 2.5, 1.5, 2])
             
-            c1.markdown(f"<span style='font-size:16px; color:#00E5FF;'><b>{acc_id}</b></span>", unsafe_allow_html=True)
+            # 🚀 UPDATE: Showing sequential number before Exness ID
+            c1.markdown(f"<span style='font-size:16px; color:#00E5FF;'><b>{row_index}. {acc_id}</b></span>", unsafe_allow_html=True)
             c2.markdown(f"**{owner}**")
             c3.markdown(f"<span style='font-size:13px; color:#7f8c8d;'>{hwid}<br>📂 {tbl_source}</span>", unsafe_allow_html=True)
             
