@@ -6,6 +6,49 @@ import os
 from dotenv import load_dotenv
 from supabase import create_client
 
+# ==========================================
+# 🔒 SECURITY: PASSWORD PROTECTION
+# ==========================================
+def check_password():
+    """Returns `True` if the user had the correct password."""
+
+    def password_entered():
+        """Checks whether a password entered by the user is correct."""
+        # ⚠️ បងអាចប្តូរ Password ត្រង់នេះបានតាមចិត្ត
+        if st.session_state["password"] == "AAaa112233^^66":
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]  # លុបចេញកុំឱ្យនៅសល់ក្នុងអង្គចងចាំ
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        # លើកដំបូងដែលបើក ឱ្យវាបង្ហាញផ្ទាំងសួរ Password
+        st.text_input(
+            "🔒 ប្រព័ន្ធត្រូវបានចាក់សោរ! សូមបញ្ចូលលេខសម្ងាត់ (Password):", 
+            type="password", 
+            on_change=password_entered, 
+            key="password"
+        )
+        return False
+    elif not st.session_state["password_correct"]:
+        # បើវាយខុស បង្ហាញអក្សរក្រហម រួចឱ្យវាយម្តងទៀត
+        st.text_input(
+            "🔒 ប្រព័ន្ធត្រូវបានចាក់សោរ! សូមបញ្ចូលលេខសម្ងាត់ (Password):", 
+            type="password", 
+            on_change=password_entered, 
+            key="password"
+        )
+        st.error("❌ លេខសម្ងាត់មិនត្រឹមត្រូវទេ! អ្នកមិនមានសិទ្ធិចូលមើលទេ។")
+        return False
+    else:
+        # បើវាយត្រូវ អនុញ្ញាតឱ្យចូល
+        return True
+
+# ហៅ Function ឆែក Password បើអត់ត្រូវទេ បញ្ឈប់ការ Run កូដខាងក្រោមទាំងអស់
+if not check_password():
+    st.stop()
+
+
 # 🚀 ទាញយកបរិស្ថាន (Environment Variables)
 load_dotenv()
 
