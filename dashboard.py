@@ -300,6 +300,38 @@ with tab_license_center:
     st.write("---")
     
     # ------------------------------------------
+    # ➕ បន្ថែមអតិថិជនថ្មី (ADD NEW CLIENT)
+    # ------------------------------------------
+    with st.expander("➕ បន្ថែមអតិថិជនថ្មីចូលប្រព័ន្ធ (Add New Client)"):
+        with st.form("add_client_form"):
+            col1, col2 = st.columns(2)
+            new_acc_id = col1.text_input("លេខ Account ID (ឧទាហរណ៍៖ 12345678)")
+            new_client_name = col2.text_input("ឈ្មោះអតិថិជន (ចំណាំទុកមើល)")
+            new_hwid = st.text_input("HWID (កូដម៉ាស៊ីនដែលអតិថិជនផ្ញើមក)")
+            
+            submit_button = st.form_submit_button("រក្សាទុកចូល Database 💾")
+            
+            if submit_button:
+                if new_acc_id and new_client_name:
+                    new_data = {
+                        "account_number": new_acc_id,
+                        "owner_name": new_client_name,
+                        "hwid": new_hwid,
+                        "is_active": False  # ដាក់ False សិនដើម្បីឱ្យ Admin ជាអ្នក Approve តាមក្រោយ
+                    }
+                    try:
+                        supabase.table("user_licenses").insert(new_data).execute()
+                        st.success(f"✅ បានបន្ថែមអតិថិជន {new_client_name} ចូលក្នុងប្រព័ន្ធដោយជោគជ័យ!")
+                        time.sleep(1)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ កំហុស៖ សូមប្រាកដថាលេខគណនីនេះមិនជាន់គ្នា។ ({e})")
+                else:
+                    st.warning("⚠️ សូមបំពេញលេខ Account ID និងឈ្មោះអតិថិជនឱ្យបានត្រឹមត្រូវ!")
+
+    st.write("---")
+
+    # ------------------------------------------
     # 🔍 ស្វែងរក និងគ្រប់គ្រងអតិថិជន 
     # ------------------------------------------
     st.markdown("### 📋 Quick Search & License Database")
@@ -322,7 +354,6 @@ with tab_license_center:
         
         # Header Row
         h_col1, h_col2, h_col3, h_col4, h_col5 = st.columns([1.5, 2, 2.5, 1.5, 2])
-        # 🚀 UPDATE: Added 'No.' header
         h_col1.markdown("**No. 🆔 Exness ID**")
         h_col2.markdown("**👤 ឈ្មោះអតិថិជន**")
         h_col3.markdown("**🖥️ HWID / 📂 Table**")
@@ -331,7 +362,6 @@ with tab_license_center:
         st.markdown("<hr style='margin: 5px 0px; border: 1px solid #1a2639'>", unsafe_allow_html=True)
         
         # Data Rows
-        # 🚀 UPDATE: Using enumerate to add sequential numbers
         for row_index, (idx, row) in enumerate(filtered_licenses.iterrows(), start=1):
             acc_id = row.get('account_number', 'Unknown')
             owner = row.get('owner_name', row.get('client_name', 'Unknown User'))
@@ -341,7 +371,6 @@ with tab_license_center:
             
             c1, c2, c3, c4, c5 = st.columns([1.5, 2, 2.5, 1.5, 2])
             
-            # 🚀 UPDATE: Showing sequential number before Exness ID
             c1.markdown(f"<span style='font-size:16px; color:#00E5FF;'><b>{row_index}. {acc_id}</b></span>", unsafe_allow_html=True)
             c2.markdown(f"**{owner}**")
             c3.markdown(f"<span style='font-size:13px; color:#7f8c8d;'>{hwid}<br>📂 {tbl_source}</span>", unsafe_allow_html=True)
