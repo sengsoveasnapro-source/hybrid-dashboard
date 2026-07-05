@@ -313,7 +313,11 @@ with tab_license_center:
             
             if submit_button:
                 if new_acc_id and new_client_name:
+                    # 💡 បង្កើត ID ថ្មីដោយប្រើ Time (ការពារការជាន់លេខ ID ក្នុង Database)
+                    safe_id = int(time.time())
+                    
                     new_data = {
+                        "id": safe_id,  # 👈 បញ្ចូល ID ដោយផ្ទាល់ដើម្បីកុំឱ្យបុកគ្នា
                         "account_number": new_acc_id,
                         "owner_name": new_client_name,
                         "hwid": new_hwid,
@@ -325,7 +329,7 @@ with tab_license_center:
                         time.sleep(1)
                         st.rerun()
                     except Exception as e:
-                        st.error(f"❌ កំហុស៖ សូមប្រាកដថាលេខគណនីនេះមិនជាន់គ្នា។ ({e})")
+                        st.error(f"❌ កំហុសបច្ចេកទេស៖ សូមប្រាកដថាលេខគណនីនេះមិនទាន់មានក្នុងប្រព័ន្ធ។ ({e})")
                 else:
                     st.warning("⚠️ សូមបំពេញលេខ Account ID និងឈ្មោះអតិថិជនឱ្យបានត្រឹមត្រូវ!")
 
