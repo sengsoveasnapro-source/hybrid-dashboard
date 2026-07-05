@@ -7,6 +7,11 @@ from dotenv import load_dotenv
 from supabase import create_client
 
 # ==========================================
+# 💵 កំណត់តម្លៃ COMMISSION ពី EXNESS (គិតជាដុល្លារក្នុង ១ ឡូត៍)
+# ==========================================
+COMMISSION_PER_LOT = 5.0  # 👈 បងអាចប្តូរលេខនេះបាន! (ឧទាហរណ៍៖ បើ Exness ឱ្យ $10 ក្នុង១ឡូត៍ សូមប្តូរទៅ 10.0)
+
+# ==========================================
 # 🔒 SECURITY: PASSWORD PROTECTION
 # ==========================================
 def check_password():
@@ -162,6 +167,7 @@ with tab_dashboard:
         if not active_df.empty:
             display_list = []
             total_bal, total_eq, total_prof = 0.0, 0.0, 0.0
+            total_today_commission = 0.0 # 👈 អញ្ញាតរាប់ Commission សរុប
             
             # បន្ថែមលេខរៀង (No.)
             row_index = 1
@@ -188,23 +194,32 @@ with tab_dashboard:
                         t1 = safe_float(m_data.get('t_1')); t2 = safe_float(m_data.get('t_2'))
                         t3 = safe_float(m_data.get('t_3')); t4 = safe_float(m_data.get('t_4'))
                 
+                # 💵 គណនា Commission របស់គណនីនេះប្រចាំថ្ងៃនេះ
+                today_commission = today_lots * COMMISSION_PER_LOT
+                
                 total_bal += bal; total_eq += eq; total_prof += prof
+                total_today_commission += today_commission # បូកចូល Commission រួម
+                
                 formatted_status = format_status(status)
 
                 display_list.append({
                     "ល.រ": row_index,
                     "Account ID": acc, "Name": name, "Status": formatted_status,
-                    "Balance": f"${bal:,.2f}", "Float P/L": f"${prof:,.2f}", "Active Nodes": total_pos,
-                    "Today Lots": f"{today_lots:.2f}", "Total Lots": f"{total_lots_db:.2f}",
-                    "T-1": f"{t1:.2f}", "T-2": f"{t2:.2f}", "T-3": f"{t3:.2f}", "T-4": f"{t4:.2f}",
+                    "Balance": f"${bal:,.2f}", "Float P/L": f"${prof:,.2f}", 
+                    "Active Nodes": total_pos,
+                    "Today Lots": f"{today_lots:.2f}",
+                    "🎁 Com ថ្ងៃនេះ": f"${today_commission:,.2f}", # 👈 បង្ហាញ Commission
+                    "Total Active Lots": f"{total_lots_db:.2f}",
                     "អាប់ដេត": last_sync
                 })
                 row_index += 1
                 
-            colA, colB, colC = st.columns(3)
+            # 🚀 បង្ហាញតួលេខធំៗ ៤ នៅខាងលើ
+            colA, colB, colC, colD = st.columns(4)
             colA.metric("💰 ទឹកប្រាក់សរុប (Net Balance)", f"${total_bal:,.2f}")
             colB.metric("🛡️ សមតុល្យរួម (Live Equity)", f"${total_eq:,.2f}")
-            colC.metric("📈 ប្រាក់ចំណេញរួម (Float P/L)", f"${total_prof:,.2f}")
+            colC.metric("📈 ប្រាក់ចំណេញអតិថិជន (Float P/L)", f"${total_prof:,.2f}")
+            colD.metric("🎁 កម្រៃជើងសារសរុបថ្ងៃនេះ (Est. Com)", f"${total_today_commission:,.2f}") # 👈 ផ្ទាំងថ្មី
             
             st.write("")
             df_to_display = pd.DataFrame(display_list)
