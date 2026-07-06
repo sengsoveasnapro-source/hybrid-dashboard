@@ -3,6 +3,7 @@ import pandas as pd
 import requests
 import time
 import os
+from datetime import datetime
 from dotenv import load_dotenv
 from supabase import create_client
 
@@ -145,7 +146,8 @@ def safe_int(val):
 # ==========================================
 # CREATING TABS
 # ==========================================
-tab_dashboard, tab_license_center = st.tabs(["📊 UNIFIED LIVE SYSTEMS", "🔑 LICENSE MANAGEMENT CENTER"])
+# 🚀 ថ្មី: បន្ថែម Tab ទី 3 សម្រាប់ Reports
+tab_dashboard, tab_license_center, tab_reports = st.tabs(["📊 UNIFIED LIVE SYSTEMS", "🔑 LICENSE MANAGEMENT CENTER", "📈 របាយការណ៍ (REPORTS)"])
 
 # ==========================================
 # 📊 TAB 1: UNIFIED LIVE SYSTEMS
@@ -177,7 +179,6 @@ with tab_dashboard:
                 name = row.get('owner_name', row.get('client_name', 'Auto Registered'))
                 bal, eq, prof, status, last_sync = 0.0, 0.0, 0.0, "OFFLINE", "-"
                 total_pos, today_lots, total_lots_db = 0, 0.0, 0.0
-                t1, t2, t3, t4 = 0.0, 0.0, 0.0, 0.0
                 
                 if not live_df.empty and 'vps_name' in live_df.columns:
                     match = live_df[live_df['vps_name'].astype(str) == acc]
@@ -191,8 +192,7 @@ with tab_dashboard:
                         total_pos = safe_int(m_data.get('total_pos'))
                         today_lots = safe_float(m_data.get('today_lots'))
                         total_lots_db = safe_float(m_data.get('total_lots'))
-                        t1 = safe_float(m_data.get('t_1')); t2 = safe_float(m_data.get('t_2'))
-                        t3 = safe_float(m_data.get('t_3')); t4 = safe_float(m_data.get('t_4'))
+                        # 🚀 បានលុបទិន្នន័យ T-1 ដល់ T-7 ចេញពីទីនេះ
                 
                 # 💵 គណនា Commission របស់គណនីនេះប្រចាំថ្ងៃនេះ
                 today_commission = today_lots * COMMISSION_PER_LOT
@@ -419,6 +419,45 @@ with tab_license_center:
             
     else:
         st.info("មិនទាន់មានទិន្នន័យអាជ្ញាប័ណ្ណទេ។")
+
+# ==============================================================================
+# 📈 TAB 3: REPORTS & ANALYTICS (ថ្មី)
+# ==============================================================================
+with tab_reports:
+    st.subheader("📈 របាយការណ៍ប្រាក់ចំណេញប្រចាំខែ (Monthly Analytics)")
+    st.write("---")
+    
+    if not live_df.empty and 'last_updated' in live_df.columns:
+        # គណនាទិន្នន័យតាមខែ
+        report_df = live_df.copy()
+        report_df['last_updated'] = pd.to_datetime(report_df['last_updated'])
+        report_df['Month'] = report_df['last_updated'].dt.to_period('M')
+        
+        # បូកសរុប Lots
+        monthly_report = report_df.groupby('Month')['today_lots'].sum().reset_index()
+        monthly_report['Commission'] = monthly_report['today_lots'] * COMMISSION_PER_LOT
+        monthly_report['Month'] = monthly_report['Month'].astype(str)
+        
+        col_r1, col_r2 = st.columns([1, 2])
+        
+        with col_r1:
+            st.markdown("#### 📊 តារាងចំណូលប្រចាំខែ")
+            # កែសម្រួលទ្រង់ទ្រាយសម្រាប់បង្ហាញ
+            monthly_report_display = monthly_report.rename(columns={
+                'Month': 'ខែ/ឆ្នាំ', 
+                'today_lots': 'ឡូត៍សរុប (Lots)', 
+                'Commission': 'ចំណូលសរុប ($)'
+            })
+            monthly_report_display['ចំណូលសរុប ($)'] = monthly_report_display['ចំណូលសរុប ($)'].apply(lambda x: f"${x:,.2f}")
+            st.dataframe(monthly_report_display, use_container_width=True, hide_index=True)
+            
+        with col_r2:
+            st.markdown("#### 📈 ក្រាហ្វចំណូលកម្រៃជើងសារ (Commission)")
+            st.bar_chart(monthly_report.set_index('Month')['Commission'])
+            
+    else:
+        st.warning("⚠️ មិនទាន់មានទិន្នន័យប្រវត្តិសាស្ត្រគ្រប់គ្រាន់សម្រាប់បង្ហាញរបាយការណ៍នៅឡើយទេ។")
+
 
 # ==========================================
 # 🔄 REFRESH BUTTON
