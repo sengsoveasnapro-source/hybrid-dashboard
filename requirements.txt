@@ -1,5 +1,9 @@
-python-dotenv
 streamlit
 pandas
-supabase
 requests
+supabase
+pyqtgraph
+PyQt5
+numpy
+python-dotenv
+extra-streamlit-components
