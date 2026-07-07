@@ -1,9 +1,5 @@
 streamlit
 pandas
 requests
-supabase
-pyqtgraph
-PyQt5
-numpy
 python-dotenv
-extra-streamlit-components
+supabase

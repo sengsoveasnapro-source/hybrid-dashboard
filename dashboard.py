@@ -3,7 +3,8 @@ import pandas as pd
 import requests
 import time
 import os
-from datetime import datetime
+import datetime
+import extra_streamlit_components as stx
 from dotenv import load_dotenv
 from supabase import create_client
 
@@ -13,16 +14,31 @@ from supabase import create_client
 COMMISSION_PER_LOT = 0.0012  # 👈 បងអាចប្តូរលេខនេះបាន!
 
 # ==========================================
-# 🔒 SECURITY: PASSWORD PROTECTION
+# 🔒 SECURITY: PASSWORD PROTECTION (ប្រើ Cookies)
 # ==========================================
-def check_password():
-    """Returns `True` if the user had the correct password."""
+@st.cache_resource
+def get_cookie_manager():
+    return stx.CookieManager()
 
+cookie_manager = get_cookie_manager()
+
+def check_password():
+    """Returns `True` if the user has the correct password or a valid cookie."""
+    
+    # ១. ឆែកមើលថាតើមាន Cookie ចងចាំការ Login ដែរឬទេ?
+    if cookie_manager.get(cookie="is_logged_in") == "true":
+        return True
+
+    # ២. បើមិនទាន់មាន Cookie ទេ តម្រូវឱ្យបញ្ចូល Password
     def password_entered():
-        """Checks whether a password entered by the user is correct."""
         if st.session_state["password"] == "AAaa112233^^66":
             st.session_state["password_correct"] = True
-            del st.session_state["password"]  # លុបចេញកុំឱ្យនៅសល់ក្នុងអង្គចងចាំ
+            
+            # បង្កើត Cookie ឱ្យចងចាំរយៈពេល ៣០ ថ្ងៃ (បងអាចប្តូរចំនួនថ្ងៃបាន)
+            expire_date = datetime.datetime.now() + datetime.timedelta(days=30)
+            cookie_manager.set("is_logged_in", "true", expires_at=expire_date)
+            
+            del st.session_state["password"]  # លុបចេញពីអង្គចងចាំបណ្តោះអាសន្ន
         else:
             st.session_state["password_correct"] = False
 
@@ -51,7 +67,9 @@ if not check_password():
     st.stop()
 
 
+# ==========================================
 # 🚀 ទាញយកបរិស្ថាន (Environment Variables)
+# ==========================================
 load_dotenv()
 
 # 🛡️ ប្រព័ន្ធការពារ Error: ព្យាយាមអានពី st.secrets មុន បើអត់មាន អានពី .env វិញ
@@ -122,7 +140,6 @@ def fetch_live_data():
     except: return []
     return []
 
-# 🚀 ថ្មី: ទាញយកទិន្នន័យពី Table ប្រវត្តិសាស្ត្រ
 @st.cache_data(ttl=60)
 def fetch_history_data():
     endpoint = f"{SUPABASE_URL}/rest/v1/daily_history_log?select=*"
@@ -439,7 +456,6 @@ with tab_reports:
         # ១. របាយការណ៍ប្រចាំថ្ងៃ
         # ---------------------------
         with rep_tab1:
-            # Query & Group By
             daily_report = daily_max_df.groupby('Day')['total_lots'].sum().reset_index()
             daily_report['Commission'] = daily_report['total_lots'] * COMMISSION_PER_LOT
             total_daily_com = daily_report['Commission'].sum()
@@ -461,7 +477,6 @@ with tab_reports:
         # ២. របាយការណ៍ប្រចាំខែ
         # ---------------------------
         with rep_tab2:
-            # Query & Group By
             monthly_report = daily_max_df.groupby('Month')['total_lots'].sum().reset_index()
             monthly_report['Commission'] = monthly_report['total_lots'] * COMMISSION_PER_LOT
             total_monthly_com = monthly_report['Commission'].sum()
@@ -483,7 +498,6 @@ with tab_reports:
         # ៣. របាយការណ៍ប្រចាំឆ្នាំ
         # ---------------------------
         with rep_tab3:
-            # Query & Group By
             yearly_report = daily_max_df.groupby('Year')['total_lots'].sum().reset_index()
             yearly_report['Commission'] = yearly_report['total_lots'] * COMMISSION_PER_LOT
             total_yearly_com = yearly_report['Commission'].sum()
