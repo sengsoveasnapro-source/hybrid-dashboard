@@ -3,7 +3,8 @@ import pandas as pd
 import requests
 import time
 import os
-from datetime import datetime
+import extra_streamlit_components as stx  # 👈 បន្ថែម Library ថ្មីសម្រាប់ធ្វើ Cookies
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from supabase import create_client
 
@@ -13,15 +14,30 @@ from supabase import create_client
 COMMISSION_PER_LOT = 0.0012  # 👈 បងអាចប្តូរលេខនេះបាន!
 
 # ==========================================
-# 🔒 SECURITY: PASSWORD PROTECTION
+# 🍪 SETUP COOKIE MANAGER
+# ==========================================
+@st.cache_resource
+def get_manager():
+    return stx.CookieManager()
+
+cookie_manager = get_manager()
+
+# ==========================================
+# 🔒 SECURITY: PASSWORD PROTECTION (WITH COOKIES)
 # ==========================================
 def check_password():
-    """Returns `True` if the user had the correct password."""
+    """Returns `True` if the user had the correct password or valid cookie."""
+    
+    # ១. ឆែកមើលថាតើមាន Cookie ចងចាំសិទ្ធិចូលឬអត់
+    if cookie_manager.get(cookie="is_authenticated") == "true":
+        return True
 
     def password_entered():
         """Checks whether a password entered by the user is correct."""
         if st.session_state["password"] == "AAaa112233^^66":
             st.session_state["password_correct"] = True
+            # បង្កើត Cookie ឱ្យវាចងចាំសិទ្ធិរយៈពេល ៣០ ថ្ងៃ លើ Device នេះ
+            cookie_manager.set("is_authenticated", "true", expires_at=datetime.now() + timedelta(days=30))
             del st.session_state["password"]  # លុបចេញកុំឱ្យនៅសល់ក្នុងអង្គចងចាំ
         else:
             st.session_state["password_correct"] = False
