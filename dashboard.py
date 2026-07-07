@@ -10,7 +10,7 @@ from supabase import create_client
 # ==========================================
 # 💵 កំណត់តម្លៃ COMMISSION ពី EXNESS (គិតជាដុល្លារក្នុង ១ ឡូត៍)
 # ==========================================
-COMMISSION_PER_LOT = 0.0012  # 👈 បងអាចប្តូរលេខនេះបាន! (ឧទាហរណ៍៖ បើ Exness ឱ្យ $10 ក្នុង១ឡូត៍ សូមប្តូរទៅ 10.0)
+COMMISSION_PER_LOT = 0.0012  # 👈 បងអាចប្តូរលេខនេះបាន!
 
 # ==========================================
 # 🔒 SECURITY: PASSWORD PROTECTION
@@ -20,7 +20,6 @@ def check_password():
 
     def password_entered():
         """Checks whether a password entered by the user is correct."""
-        # ⚠️ បងអាចប្តូរ Password ត្រង់នេះបានតាមចិត្ត
         if st.session_state["password"] == "AAaa112233^^66":
             st.session_state["password_correct"] = True
             del st.session_state["password"]  # លុបចេញកុំឱ្យនៅសល់ក្នុងអង្គចងចាំ
@@ -28,7 +27,6 @@ def check_password():
             st.session_state["password_correct"] = False
 
     if "password_correct" not in st.session_state:
-        # លើកដំបូងដែលបើក ឱ្យវាបង្ហាញផ្ទាំងសួរ Password
         st.text_input(
             "🔒 ប្រព័ន្ធត្រូវបានចាក់សោរ! សូមបញ្ចូលលេខសម្ងាត់ (Password):", 
             type="password", 
@@ -37,7 +35,6 @@ def check_password():
         )
         return False
     elif not st.session_state["password_correct"]:
-        # បើវាយខុស បង្ហាញអក្សរក្រហម រួចឱ្យវាយម្តងទៀត
         st.text_input(
             "🔒 ប្រព័ន្ធត្រូវបានចាក់សោរ! សូមបញ្ចូលលេខសម្ងាត់ (Password):", 
             type="password", 
@@ -47,10 +44,9 @@ def check_password():
         st.error("❌ លេខសម្ងាត់មិនត្រឹមត្រូវទេ! អ្នកមិនមានសិទ្ធិចូលមើលទេ។")
         return False
     else:
-        # បើវាយត្រូវ អនុញ្ញាតឱ្យចូល
         return True
 
-# ហៅ Function ឆែក Password បើអត់ត្រូវទេ បញ្ឈប់ការ Run កូដខាងក្រោមទាំងអស់
+# ហៅ Function ឆែក Password
 if not check_password():
     st.stop()
 
@@ -64,7 +60,7 @@ try:
     SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 except Exception:
     SUPABASE_URL = os.getenv("SUPABASE_URL", "https://bqozwahxwhnpnasixxps.supabase.co")
-    SUPABASE_KEY = os.getenv("SUPABASE_KEY", "") # បើប្រើ .env ត្រូវប្រាកដថាមាន Key ក្នុងនោះ
+    SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -93,7 +89,6 @@ st.write("---")
 @st.cache_data(ttl=10)
 def load_all_licenses():
     df_list = []
-    # ១. ទាញពី Table ថ្មី user_licenses
     try:
         res1 = supabase.table("user_licenses").select("*").execute()
         if res1.data:
@@ -102,7 +97,6 @@ def load_all_licenses():
             df_list.append(d1)
     except: pass
     
-    # ២. ទាញពី Table ចាស់ mt5_licenses 
     try:
         res2 = supabase.table("mt5_licenses").select("*").execute()
         if res2.data:
@@ -113,7 +107,6 @@ def load_all_licenses():
     
     if df_list:
         combined_df = pd.concat(df_list, ignore_index=True)
-        # លុបទិន្នន័យស្ទួនដោយយក Table ថ្មីជាចម្បង
         combined_df = combined_df.drop_duplicates(subset=['account_number'], keep='first')
         return combined_df
     return pd.DataFrame()
@@ -129,7 +122,19 @@ def fetch_live_data():
     except: return []
     return []
 
+# 🚀 ថ្មី: ទាញយកទិន្នន័យពី Table ប្រវត្តិសាស្ត្រ
+@st.cache_data(ttl=60)
+def fetch_history_data():
+    endpoint = f"{SUPABASE_URL}/rest/v1/daily_history_log?select=*"
+    headers = {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+    try:
+        r = requests.get(endpoint, headers=headers, timeout=10)
+        if r.status_code == 200: return r.json()
+    except: return []
+    return []
+
 live_df = pd.DataFrame(fetch_live_data())
+history_df = pd.DataFrame(fetch_history_data())
 
 def safe_float(val):
     try:
@@ -146,7 +151,6 @@ def safe_int(val):
 # ==========================================
 # CREATING TABS
 # ==========================================
-# 🚀 ថ្មី: បន្ថែម Tab ទី 3 សម្រាប់ Reports
 tab_dashboard, tab_license_center, tab_reports = st.tabs(["📊 UNIFIED LIVE SYSTEMS", "🔑 LICENSE MANAGEMENT CENTER", "📈 របាយការណ៍ (REPORTS)"])
 
 # ==========================================
@@ -169,11 +173,9 @@ with tab_dashboard:
         if not active_df.empty:
             display_list = []
             total_bal, total_eq, total_prof = 0.0, 0.0, 0.0
-            total_today_commission = 0.0 # 👈 អញ្ញាតរាប់ Commission សរុប
+            total_today_commission = 0.0
             
-            # បន្ថែមលេខរៀង (No.)
             row_index = 1
-            
             for index, row in active_df.iterrows():
                 acc = str(row.get('account_number', ''))
                 name = row.get('owner_name', row.get('client_name', 'Auto Registered'))
@@ -193,11 +195,10 @@ with tab_dashboard:
                         today_lots = safe_float(m_data.get('today_lots'))
                         total_lots_db = safe_float(m_data.get('total_lots'))
                 
-                # 💵 គណនា Commission របស់គណនីនេះប្រចាំថ្ងៃនេះ
                 today_commission = today_lots * COMMISSION_PER_LOT
                 
                 total_bal += bal; total_eq += eq; total_prof += prof
-                total_today_commission += today_commission # បូកចូល Commission រួម
+                total_today_commission += today_commission
                 
                 formatted_status = format_status(status)
 
@@ -207,18 +208,17 @@ with tab_dashboard:
                     "Balance": f"${bal:,.2f}", "Float P/L": f"${prof:,.2f}", 
                     "Active Nodes": total_pos,
                     "Today Lots": f"{today_lots:.2f}",
-                    "🎁 Com ថ្ងៃនេះ": f"${today_commission:,.2f}", # 👈 បង្ហាញ Commission
+                    "🎁 Com ថ្ងៃនេះ": f"${today_commission:,.2f}",
                     "Total Active Lots": f"{total_lots_db:.2f}",
                     "អាប់ដេត": last_sync
                 })
                 row_index += 1
                 
-            # 🚀 បង្ហាញតួលេខធំៗ ៤ នៅខាងលើ
             colA, colB, colC, colD = st.columns(4)
             colA.metric("💰 ទឹកប្រាក់សរុប (Net Balance)", f"${total_bal:,.2f}")
             colB.metric("🛡️ សមតុល្យរួម (Live Equity)", f"${total_eq:,.2f}")
             colC.metric("📈 ប្រាក់ចំណេញអតិថិជន (Float P/L)", f"${total_prof:,.2f}")
-            colD.metric("🎁 កម្រៃជើងសារសរុបថ្ងៃនេះ (Est. Com)", f"${total_today_commission:,.2f}") # 👈 ផ្ទាំងថ្មី
+            colD.metric("🎁 កម្រៃជើងសារសរុបថ្ងៃនេះ (Est. Com)", f"${total_today_commission:,.2f}")
             
             st.write("")
             df_to_display = pd.DataFrame(display_list)
@@ -250,13 +250,12 @@ with tab_dashboard:
             with edit_col1:
                 edit_target = st.selectbox("🎯 ជ្រើសរើសគណនីដើម្បីកែឈ្មោះ៖", licenses_df['account_number'], key="edit_name_select")
             with edit_col2:
-                # ទាញឈ្មោះចាស់មកបង្ហាញ
                 old_name = licenses_df[licenses_df['account_number'] == edit_target].iloc[0].get('owner_name', '')
                 if not old_name:
                     old_name = licenses_df[licenses_df['account_number'] == edit_target].iloc[0].get('client_name', '')
                 new_name = st.text_input("📝 បញ្ចូលឈ្មោះថ្មី:", value=old_name, key="new_name_input")
             with edit_col3:
-                st.write("") # សម្រាប់តម្រឹមអោយស្មើ Text Input
+                st.write("") 
                 st.write("")
                 if st.button("💾 រក្សាទុក (Save)", use_container_width=True):
                     if new_name:
@@ -327,15 +326,13 @@ with tab_license_center:
             
             if submit_button:
                 if new_acc_id and new_client_name:
-                    # 💡 បង្កើត ID ថ្មីដោយប្រើ Time (ការពារការជាន់លេខ ID ក្នុង Database)
                     safe_id = int(time.time())
-                    
                     new_data = {
-                        "id": safe_id,  # 👈 បញ្ចូល ID ដោយផ្ទាល់ដើម្បីកុំឱ្យបុកគ្នា
+                        "id": safe_id, 
                         "account_number": new_acc_id,
                         "owner_name": new_client_name,
                         "hwid": new_hwid,
-                        "is_active": False  # ដាក់ False សិនដើម្បីឱ្យ Admin ជាអ្នក Approve តាមក្រោយ
+                        "is_active": False 
                     }
                     try:
                         supabase.table("user_licenses").insert(new_data).execute()
@@ -367,10 +364,8 @@ with tab_license_center:
             filtered_licenses = licenses_df
 
         st.markdown(f"📊 លទ្ធផលសរុប៖ **{len(filtered_licenses)} គណនី**")
-        
         st.markdown("<hr style='margin: 5px 0px; border: 1px solid #1a2639'>", unsafe_allow_html=True)
         
-        # Header Row
         h_col1, h_col2, h_col3, h_col4, h_col5 = st.columns([1.5, 2, 2.5, 1.5, 2])
         h_col1.markdown("**No. 🆔 Exness ID**")
         h_col2.markdown("**👤 ឈ្មោះអតិថិជន**")
@@ -379,7 +374,6 @@ with tab_license_center:
         h_col5.markdown("**⚙️ សកម្មភាព (Action)**")
         st.markdown("<hr style='margin: 5px 0px; border: 1px solid #1a2639'>", unsafe_allow_html=True)
         
-        # Data Rows
         for row_index, (idx, row) in enumerate(filtered_licenses.iterrows(), start=1):
             acc_id = row.get('account_number', 'Unknown')
             owner = row.get('owner_name', row.get('client_name', 'Unknown User'))
@@ -400,8 +394,6 @@ with tab_license_center:
                 
             with c5:
                 is_button_disabled = bool(is_active == True)
-                
-                # ប៊ូតុង Approve & Revoke
                 btn_c1, btn_c2 = st.columns(2)
                 if btn_c1.button("✅ Approve", key=f"app_{acc_id}_{idx}", use_container_width=True, disabled=is_button_disabled):
                     supabase.table(tbl_source).update({"is_active": True}).eq("account_number", acc_id).execute()
@@ -426,15 +418,19 @@ with tab_reports:
     st.subheader("📈 របាយការណ៍កម្រៃជើងសារ (Commission Analytics)")
     st.write("---")
     
-    if not live_df.empty and 'last_updated' in live_df.columns:
-        # ចម្លងទិន្នន័យ និងបំប្លែងពេលវេលា
-        report_df = live_df.copy()
-        report_df['last_updated'] = pd.to_datetime(report_df['last_updated'])
+    if not history_df.empty and 'created_at' in history_df.columns:
+        # ចម្លងទិន្នន័យ និងបំប្លែងពេលវេលាពី Table ថ្មី (daily_history_log)
+        report_df = history_df.copy()
+        report_df['created_at'] = pd.to_datetime(report_df['created_at'])
         
-        # បង្កើត Column សម្រាប់ ថ្ងៃ, ខែ, ឆ្នាំ
-        report_df['Day'] = report_df['last_updated'].dt.strftime('%Y-%m-%d')
-        report_df['Month'] = report_df['last_updated'].dt.strftime('%Y-%m')
-        report_df['Year'] = report_df['last_updated'].dt.strftime('%Y')
+        # បង្កើត Column សម្រាប់ ថ្ងៃ, ខែ, ឆ្នាំ ពីកាលបរិច្ឆេទ
+        report_df['Day'] = report_df['created_at'].dt.strftime('%Y-%m-%d')
+        report_df['Month'] = report_df['created_at'].dt.strftime('%Y-%m')
+        report_df['Year'] = report_df['created_at'].dt.strftime('%Y')
+        report_df['total_lots'] = report_df['total_lots'].apply(safe_float)
+        
+        # 💡 ការពារទិន្នន័យស្ទួន: យកចំនួនឡូត៍ធំបំផុតប្រចាំថ្ងៃរបស់គណនីនីមួយៗ (Max lots per account per day)
+        daily_max_df = report_df.groupby(['Day', 'account_number', 'Month', 'Year'])['total_lots'].max().reset_index()
         
         # បង្កើត Tab តូចៗសម្រាប់មើលរបាយការណ៍តាមប្រភេទ
         rep_tab1, rep_tab2, rep_tab3 = st.tabs(["📅 ប្រចាំថ្ងៃ (Daily)", "📆 ប្រចាំខែ (Monthly)", "📊 ប្រចាំឆ្នាំ (Yearly)"])
@@ -443,13 +439,18 @@ with tab_reports:
         # ១. របាយការណ៍ប្រចាំថ្ងៃ
         # ---------------------------
         with rep_tab1:
-            daily_report = report_df.groupby('Day')['today_lots'].sum().reset_index()
-            daily_report['Commission'] = daily_report['today_lots'] * COMMISSION_PER_LOT
+            # Query & Group By
+            daily_report = daily_max_df.groupby('Day')['total_lots'].sum().reset_index()
+            daily_report['Commission'] = daily_report['total_lots'] * COMMISSION_PER_LOT
+            total_daily_com = daily_report['Commission'].sum()
+            
+            st.metric("💵 ចំណូលកម្រៃជើងសារសរុបថ្ងៃនេះ", f"${total_daily_com:,.2f}")
+            st.write("")
             
             col_d1, col_d2 = st.columns([1.5, 2])
             with col_d1:
                 st.markdown("#### 📊 តារាងចំណូលប្រចាំថ្ងៃ")
-                df_d = daily_report.rename(columns={'Day': 'កាលបរិច្ឆេទ', 'today_lots': 'ឡូត៍សរុប', 'Commission': 'ចំណូលសរុប ($)'})
+                df_d = daily_report.rename(columns={'Day': 'កាលបរិច្ឆេទ', 'total_lots': 'ឡូត៍សរុប', 'Commission': 'ចំណូលសរុប ($)'})
                 df_d['ចំណូលសរុប ($)'] = df_d['ចំណូលសរុប ($)'].apply(lambda x: f"${x:,.2f}")
                 st.dataframe(df_d, use_container_width=True, hide_index=True)
             with col_d2:
@@ -460,13 +461,18 @@ with tab_reports:
         # ២. របាយការណ៍ប្រចាំខែ
         # ---------------------------
         with rep_tab2:
-            monthly_report = report_df.groupby('Month')['today_lots'].sum().reset_index()
-            monthly_report['Commission'] = monthly_report['today_lots'] * COMMISSION_PER_LOT
+            # Query & Group By
+            monthly_report = daily_max_df.groupby('Month')['total_lots'].sum().reset_index()
+            monthly_report['Commission'] = monthly_report['total_lots'] * COMMISSION_PER_LOT
+            total_monthly_com = monthly_report['Commission'].sum()
+            
+            st.metric("💵 ចំណូលកម្រៃជើងសារសរុបខែនេះ", f"${total_monthly_com:,.2f}")
+            st.write("")
             
             col_m1, col_m2 = st.columns([1.5, 2])
             with col_m1:
                 st.markdown("#### 📊 តារាងចំណូលប្រចាំខែ")
-                df_m = monthly_report.rename(columns={'Month': 'ខែ/ឆ្នាំ', 'today_lots': 'ឡូត៍សរុប', 'Commission': 'ចំណូលសរុប ($)'})
+                df_m = monthly_report.rename(columns={'Month': 'ខែ/ឆ្នាំ', 'total_lots': 'ឡូត៍សរុប', 'Commission': 'ចំណូលសរុប ($)'})
                 df_m['ចំណូលសរុប ($)'] = df_m['ចំណូលសរុប ($)'].apply(lambda x: f"${x:,.2f}")
                 st.dataframe(df_m, use_container_width=True, hide_index=True)
             with col_m2:
@@ -477,13 +483,18 @@ with tab_reports:
         # ៣. របាយការណ៍ប្រចាំឆ្នាំ
         # ---------------------------
         with rep_tab3:
-            yearly_report = report_df.groupby('Year')['today_lots'].sum().reset_index()
-            yearly_report['Commission'] = yearly_report['today_lots'] * COMMISSION_PER_LOT
+            # Query & Group By
+            yearly_report = daily_max_df.groupby('Year')['total_lots'].sum().reset_index()
+            yearly_report['Commission'] = yearly_report['total_lots'] * COMMISSION_PER_LOT
+            total_yearly_com = yearly_report['Commission'].sum()
+            
+            st.metric("💵 ចំណូលកម្រៃជើងសារសរុបឆ្នាំនេះ", f"${total_yearly_com:,.2f}")
+            st.write("")
             
             col_y1, col_y2 = st.columns([1.5, 2])
             with col_y1:
                 st.markdown("#### 📊 តារាងចំណូលប្រចាំឆ្នាំ")
-                df_y = yearly_report.rename(columns={'Year': 'ឆ្នាំ', 'today_lots': 'ឡូត៍សរុប', 'Commission': 'ចំណូលសរុប ($)'})
+                df_y = yearly_report.rename(columns={'Year': 'ឆ្នាំ', 'total_lots': 'ឡូត៍សរុប', 'Commission': 'ចំណូលសរុប ($)'})
                 df_y['ចំណូលសរុប ($)'] = df_y['ចំណូលសរុប ($)'].apply(lambda x: f"${x:,.2f}")
                 st.dataframe(df_y, use_container_width=True, hide_index=True)
             with col_y2:
@@ -492,7 +503,6 @@ with tab_reports:
             
     else:
         st.warning("⚠️ មិនទាន់មានទិន្នន័យប្រវត្តិសាស្ត្រគ្រប់គ្រាន់សម្រាប់បង្ហាញរបាយការណ៍នៅឡើយទេ។")
-
 
 # ==========================================
 # 🔄 REFRESH BUTTON
