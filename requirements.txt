@@ -3,3 +3,4 @@ pandas
 requests
 python-dotenv
 supabase
+extra-streamlit-components
