@@ -3,8 +3,7 @@ import pandas as pd
 import requests
 import time
 import os
-import datetime
-import extra_streamlit_components as stx
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from supabase import create_client
 
@@ -14,62 +13,35 @@ from supabase import create_client
 COMMISSION_PER_LOT = 0.0012  # 👈 បងអាចប្តូរលេខនេះបាន!
 
 # ==========================================
-# 🔒 SECURITY: PASSWORD PROTECTION (ប្រើ Cookies)
+# 🔒 SECURITY: PASSWORD PROTECTION (SAFE MODE)
 # ==========================================
-@st.cache_resource
-def get_cookie_manager():
-    return stx.CookieManager()
-
-cookie_manager = get_cookie_manager()
-
 def check_password():
-    """Returns `True` if the user has the correct password or a valid cookie."""
-    
-    # ១. ឆែកមើលថាតើមាន Cookie ចងចាំការ Login ដែរឬទេ?
-    if cookie_manager.get(cookie="is_logged_in") == "true":
-        return True
-
-    # ២. បើមិនទាន់មាន Cookie ទេ តម្រូវឱ្យបញ្ចូល Password
-    def password_entered():
-        if st.session_state["password"] == "AAaa112233^^66":
-            st.session_state["password_correct"] = True
-            
-            # បង្កើត Cookie ឱ្យចងចាំរយៈពេល ៣០ ថ្ងៃ (បងអាចប្តូរចំនួនថ្ងៃបាន)
-            expire_date = datetime.datetime.now() + datetime.timedelta(days=30)
-            cookie_manager.set("is_logged_in", "true", expires_at=expire_date)
-            
-            del st.session_state["password"]  # លុបចេញពីអង្គចងចាំបណ្តោះអាសន្ន
-        else:
-            st.session_state["password_correct"] = False
-
+    """ប្រព័ន្ធការពារដោយ Password ដែលធានាថាគ្មារ Error 100%"""
     if "password_correct" not in st.session_state:
-        st.text_input(
-            "🔒 ប្រព័ន្ធត្រូវបានចាក់សោរ! សូមបញ្ចូលលេខសម្ងាត់ (Password):", 
-            type="password", 
-            on_change=password_entered, 
-            key="password"
-        )
-        return False
-    elif not st.session_state["password_correct"]:
-        st.text_input(
-            "🔒 ប្រព័ន្ធត្រូវបានចាក់សោរ! សូមបញ្ចូលលេខសម្ងាត់ (Password):", 
-            type="password", 
-            on_change=password_entered, 
-            key="password"
-        )
-        st.error("❌ លេខសម្ងាត់មិនត្រឹមត្រូវទេ! អ្នកមិនមានសិទ្ធិចូលមើលទេ។")
-        return False
-    else:
-        return True
+        st.session_state["password_correct"] = False
 
-# ហៅ Function ឆែក Password
+    if not st.session_state["password_correct"]:
+        st.markdown("<h2 style='text-align: center; color: #00E5FF;'>🔒 SECURITY CHECKPOINT</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #a0b2c6;'>សូមបញ្ចូលលេខសម្ងាត់ដើម្បីចូលទៅកាន់ផ្ទាំងគ្រប់គ្រង</p>", unsafe_allow_html=True)
+        
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            pwd = st.text_input("Password:", type="password", key="pwd_input")
+            if st.button("🔓 LOGIN", use_container_width=True):
+                if pwd == "AAaa112233^^66":  # 👈 លេខសម្ងាត់របស់បង
+                    st.session_state["password_correct"] = True
+                    st.rerun()
+                else:
+                    st.error("❌ លេខសម្ងាត់មិនត្រឹមត្រូវទេ! សូមព្យាយាមម្តងទៀត។")
+        return False
+    return True
+
+# ហៅ Function ឆែក Password មុននឹងបង្ហាញទិន្នន័យផ្សេងៗ
 if not check_password():
     st.stop()
 
 
-# ==========================================
 # 🚀 ទាញយកបរិស្ថាន (Environment Variables)
-# ==========================================
 load_dotenv()
 
 # 🛡️ ប្រព័ន្ធការពារ Error: ព្យាយាមអានពី st.secrets មុន បើអត់មាន អានពី .env វិញ
@@ -78,7 +50,8 @@ try:
     SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 except Exception:
     SUPABASE_URL = os.getenv("SUPABASE_URL", "https://bqozwahxwhnpnasixxps.supabase.co")
-    SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+    # 🔴 បងអាចដាក់ Key របស់បងនៅទីនេះបានបើចង់
+    SUPABASE_KEY = os.getenv("SUPABASE_KEY", "sb_secret_WHYHQLYaMhHhl8x6QSKdaA_20j2MK9I") 
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -140,6 +113,7 @@ def fetch_live_data():
     except: return []
     return []
 
+# ទាញយកទិន្នន័យពី Table ប្រវត្តិសាស្ត្រ
 @st.cache_data(ttl=60)
 def fetch_history_data():
     endpoint = f"{SUPABASE_URL}/rest/v1/daily_history_log?select=*"
@@ -436,25 +410,18 @@ with tab_reports:
     st.write("---")
     
     if not history_df.empty and 'created_at' in history_df.columns:
-        # ចម្លងទិន្នន័យ និងបំប្លែងពេលវេលាពី Table ថ្មី (daily_history_log)
         report_df = history_df.copy()
         report_df['created_at'] = pd.to_datetime(report_df['created_at'])
         
-        # បង្កើត Column សម្រាប់ ថ្ងៃ, ខែ, ឆ្នាំ ពីកាលបរិច្ឆេទ
         report_df['Day'] = report_df['created_at'].dt.strftime('%Y-%m-%d')
         report_df['Month'] = report_df['created_at'].dt.strftime('%Y-%m')
         report_df['Year'] = report_df['created_at'].dt.strftime('%Y')
         report_df['total_lots'] = report_df['total_lots'].apply(safe_float)
         
-        # 💡 ការពារទិន្នន័យស្ទួន: យកចំនួនឡូត៍ធំបំផុតប្រចាំថ្ងៃរបស់គណនីនីមួយៗ (Max lots per account per day)
         daily_max_df = report_df.groupby(['Day', 'account_number', 'Month', 'Year'])['total_lots'].max().reset_index()
         
-        # បង្កើត Tab តូចៗសម្រាប់មើលរបាយការណ៍តាមប្រភេទ
         rep_tab1, rep_tab2, rep_tab3 = st.tabs(["📅 ប្រចាំថ្ងៃ (Daily)", "📆 ប្រចាំខែ (Monthly)", "📊 ប្រចាំឆ្នាំ (Yearly)"])
         
-        # ---------------------------
-        # ១. របាយការណ៍ប្រចាំថ្ងៃ
-        # ---------------------------
         with rep_tab1:
             daily_report = daily_max_df.groupby('Day')['total_lots'].sum().reset_index()
             daily_report['Commission'] = daily_report['total_lots'] * COMMISSION_PER_LOT
@@ -473,9 +440,6 @@ with tab_reports:
                 st.markdown("#### 📈 ក្រាហ្វចំណូលប្រចាំថ្ងៃ")
                 st.bar_chart(daily_report.set_index('Day')['Commission'], color="#00FFA3")
 
-        # ---------------------------
-        # ២. របាយការណ៍ប្រចាំខែ
-        # ---------------------------
         with rep_tab2:
             monthly_report = daily_max_df.groupby('Month')['total_lots'].sum().reset_index()
             monthly_report['Commission'] = monthly_report['total_lots'] * COMMISSION_PER_LOT
@@ -494,9 +458,6 @@ with tab_reports:
                 st.markdown("#### 📈 ក្រាហ្វចំណូលប្រចាំខែ")
                 st.bar_chart(monthly_report.set_index('Month')['Commission'], color="#00E5FF")
 
-        # ---------------------------
-        # ៣. របាយការណ៍ប្រចាំឆ្នាំ
-        # ---------------------------
         with rep_tab3:
             yearly_report = daily_max_df.groupby('Year')['total_lots'].sum().reset_index()
             yearly_report['Commission'] = yearly_report['total_lots'] * COMMISSION_PER_LOT
