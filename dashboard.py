@@ -418,21 +418,22 @@ with tab_reports:
         report_df['Year'] = report_df['created_at'].dt.strftime('%Y')
         report_df['total_lots'] = report_df['total_lots'].apply(safe_float)
         
+        # យកទិន្នន័យ Lot ខ្ពស់បំផុតប្រចាំថ្ងៃរបស់ Account នីមួយៗសិន (ព្រោះ Bot បាញ់ឡើងរហូត)
         daily_max_df = report_df.groupby(['Day', 'account_number', 'Month', 'Year'])['total_lots'].max().reset_index()
         
         rep_tab1, rep_tab2, rep_tab3 = st.tabs(["📅 ប្រចាំថ្ងៃ (Daily)", "📆 ប្រចាំខែ (Monthly)", "📊 ប្រចាំឆ្នាំ (Yearly)"])
         
         with rep_tab1:
-            if not report_df.empty:
-                min_date = report_df['created_at'].min().date()
-                max_date = datetime.now().date()
-                all_days = pd.date_range(start=min_date, end=max_date)
-
-                # គណនាផលបូកតាមថ្ងៃ (ប្រើ daily_max_df ដូចចាស់ដើម្បីកុំឱ្យបូកជាន់គ្នា)
+            if not daily_max_df.empty:
+                # បូកសរុប Lot របស់គ្រប់ Account បញ្ចូលគ្នាក្នុងមួយថ្ងៃ
                 daily_report = daily_max_df.groupby('Day')['total_lots'].sum().reset_index()
                 daily_report['Day'] = pd.to_datetime(daily_report['Day'])
 
-                # បញ្ចូល (Merge) ជាមួយជួរថ្ងៃទាំងអស់ដើម្បីបំពេញថ្ងៃដែលខ្វះ
+                # បង្កើតជួរថ្ងៃឱ្យពេញលេញ
+                min_date = daily_report['Day'].min()
+                max_date = datetime.now().date()
+                all_days = pd.date_range(start=min_date, end=max_date)
+
                 full_days = pd.DataFrame({'Day': all_days})
                 daily_report = pd.merge(full_days, daily_report, on='Day', how='left').fillna(0)
 
@@ -448,10 +449,7 @@ with tab_reports:
                     st.markdown("#### 📊 តារាងចំណូលប្រចាំថ្ងៃ")
                     df_d = daily_report.copy()
                     df_d['កាលបរិច្ឆេទ'] = df_d['Day'].dt.strftime('%Y-%m-%d')
-                    df_d = df_d[['កាលបរិច្ឆេទ', 'total_lots', 'Commission']]
-                    df_d.columns = ['កាលបរិច្ឆេទ', 'ឡូត៍សរុប', 'ចំណូលសរុប ($)']
-
-                    df_display = df_d.copy()
+                    df_display = df_d[['កាលបរិច្ឆេទ', 'total_lots', 'Commission']].rename(columns={'total_lots': 'ឡូត៍សរុប', 'Commission': 'ចំណូលសរុប ($)'})
                     df_display['ចំណូលសរុប ($)'] = df_display['ចំណូលសរុប ($)'].apply(lambda x: f"${x:,.2f}")
                     st.dataframe(df_display, use_container_width=True, hide_index=True)
                 with col_d2:
@@ -461,40 +459,42 @@ with tab_reports:
                 st.info("មិនទាន់មានទិន្នន័យដើម្បីបង្ហាញ។")
 
         with rep_tab2:
-            monthly_report = daily_max_df.groupby('Month')['total_lots'].sum().reset_index()
-            monthly_report['Commission'] = monthly_report['total_lots'] * COMMISSION_PER_LOT
-            total_monthly_com = monthly_report['Commission'].sum()
-            
-            st.metric("💵 ចំណូលកម្រៃជើងសារសរុបខែនេះ", f"${total_monthly_com:,.2f}")
-            st.write("")
-            
-            col_m1, col_m2 = st.columns([1.5, 2])
-            with col_m1:
-                st.markdown("#### 📊 តារាងចំណូលប្រចាំខែ")
-                df_m = monthly_report.rename(columns={'Month': 'ខែ/ឆ្នាំ', 'total_lots': 'ឡូត៍សរុប', 'Commission': 'ចំណូលសរុប ($)'})
-                df_m['ចំណូលសរុប ($)'] = df_m['ចំណូលសរុប ($)'].apply(lambda x: f"${x:,.2f}")
-                st.dataframe(df_m, use_container_width=True, hide_index=True)
-            with col_m2:
-                st.markdown("#### 📈 ក្រាហ្វចំណូលប្រចាំខែ")
-                st.bar_chart(monthly_report.set_index('Month')['Commission'], color="#00E5FF")
+            if not daily_max_df.empty:
+                monthly_report = daily_max_df.groupby('Month')['total_lots'].sum().reset_index()
+                monthly_report['Commission'] = monthly_report['total_lots'] * COMMISSION_PER_LOT
+                total_monthly_com = monthly_report['Commission'].sum()
+                
+                st.metric("💵 ចំណូលកម្រៃជើងសារសរុបខែនេះ", f"${total_monthly_com:,.2f}")
+                st.write("")
+                
+                col_m1, col_m2 = st.columns([1.5, 2])
+                with col_m1:
+                    st.markdown("#### 📊 តារាងចំណូលប្រចាំខែ")
+                    df_m = monthly_report.rename(columns={'Month': 'ខែ/ឆ្នាំ', 'total_lots': 'ឡូត៍សរុប', 'Commission': 'ចំណូលសរុប ($)'})
+                    df_m['ចំណូលសរុប ($)'] = df_m['ចំណូលសរុប ($)'].apply(lambda x: f"${x:,.2f}")
+                    st.dataframe(df_m, use_container_width=True, hide_index=True)
+                with col_m2:
+                    st.markdown("#### 📈 ក្រាហ្វចំណូលប្រចាំខែ")
+                    st.bar_chart(monthly_report.set_index('Month')['Commission'], color="#00E5FF")
 
         with rep_tab3:
-            yearly_report = daily_max_df.groupby('Year')['total_lots'].sum().reset_index()
-            yearly_report['Commission'] = yearly_report['total_lots'] * COMMISSION_PER_LOT
-            total_yearly_com = yearly_report['Commission'].sum()
-            
-            st.metric("💵 ចំណូលកម្រៃជើងសារសរុបឆ្នាំនេះ", f"${total_yearly_com:,.2f}")
-            st.write("")
-            
-            col_y1, col_y2 = st.columns([1.5, 2])
-            with col_y1:
-                st.markdown("#### 📊 តារាងចំណូលប្រចាំឆ្នាំ")
-                df_y = yearly_report.rename(columns={'Year': 'ឆ្នាំ', 'total_lots': 'ឡូត៍សរុប', 'Commission': 'ចំណូលសរុប ($)'})
-                df_y['ចំណូលសរុប ($)'] = df_y['ចំណូលសរុប ($)'].apply(lambda x: f"${x:,.2f}")
-                st.dataframe(df_y, use_container_width=True, hide_index=True)
-            with col_y2:
-                st.markdown("#### 📈 ក្រាហ្វចំណូលប្រចាំឆ្នាំ")
-                st.bar_chart(yearly_report.set_index('Year')['Commission'], color="#FFAA00")
+            if not daily_max_df.empty:
+                yearly_report = daily_max_df.groupby('Year')['total_lots'].sum().reset_index()
+                yearly_report['Commission'] = yearly_report['total_lots'] * COMMISSION_PER_LOT
+                total_yearly_com = yearly_report['Commission'].sum()
+                
+                st.metric("💵 ចំណូលកម្រៃជើងសារសរុបឆ្នាំនេះ", f"${total_yearly_com:,.2f}")
+                st.write("")
+                
+                col_y1, col_y2 = st.columns([1.5, 2])
+                with col_y1:
+                    st.markdown("#### 📊 តារាងចំណូលប្រចាំឆ្នាំ")
+                    df_y = yearly_report.rename(columns={'Year': 'ឆ្នាំ', 'total_lots': 'ឡូត៍សរុប', 'Commission': 'ចំណូលសរុប ($)'})
+                    df_y['ចំណូលសរុប ($)'] = df_y['ចំណូលសរុប ($)'].apply(lambda x: f"${x:,.2f}")
+                    st.dataframe(df_y, use_container_width=True, hide_index=True)
+                with col_y2:
+                    st.markdown("#### 📈 ក្រាហ្វចំណូលប្រចាំឆ្នាំ")
+                    st.bar_chart(yearly_report.set_index('Year')['Commission'], color="#FFAA00")
             
     else:
         st.warning("⚠️ មិនទាន់មានទិន្នន័យប្រវត្តិសាស្ត្រគ្រប់គ្រាន់សម្រាប់បង្ហាញរបាយការណ៍នៅឡើយទេ។")
