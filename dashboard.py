@@ -423,22 +423,42 @@ with tab_reports:
         rep_tab1, rep_tab2, rep_tab3 = st.tabs(["📅 ប្រចាំថ្ងៃ (Daily)", "📆 ប្រចាំខែ (Monthly)", "📊 ប្រចាំឆ្នាំ (Yearly)"])
         
         with rep_tab1:
-            daily_report = daily_max_df.groupby('Day')['total_lots'].sum().reset_index()
-            daily_report['Commission'] = daily_report['total_lots'] * COMMISSION_PER_LOT
-            total_daily_com = daily_report['Commission'].sum()
-            
-            st.metric("💵 ចំណូលកម្រៃជើងសារសរុបថ្ងៃនេះ", f"${total_daily_com:,.2f}")
-            st.write("")
-            
-            col_d1, col_d2 = st.columns([1.5, 2])
-            with col_d1:
-                st.markdown("#### 📊 តារាងចំណូលប្រចាំថ្ងៃ")
-                df_d = daily_report.rename(columns={'Day': 'កាលបរិច្ឆេទ', 'total_lots': 'ឡូត៍សរុប', 'Commission': 'ចំណូលសរុប ($)'})
-                df_d['ចំណូលសរុប ($)'] = df_d['ចំណូលសរុប ($)'].apply(lambda x: f"${x:,.2f}")
-                st.dataframe(df_d, use_container_width=True, hide_index=True)
-            with col_d2:
-                st.markdown("#### 📈 ក្រាហ្វចំណូលប្រចាំថ្ងៃ")
-                st.bar_chart(daily_report.set_index('Day')['Commission'], color="#00FFA3")
+            if not report_df.empty:
+                min_date = report_df['created_at'].min().date()
+                max_date = datetime.now().date()
+                all_days = pd.date_range(start=min_date, end=max_date)
+
+                # គណនាផលបូកតាមថ្ងៃ (ប្រើ daily_max_df ដូចចាស់ដើម្បីកុំឱ្យបូកជាន់គ្នា)
+                daily_report = daily_max_df.groupby('Day')['total_lots'].sum().reset_index()
+                daily_report['Day'] = pd.to_datetime(daily_report['Day'])
+
+                # បញ្ចូល (Merge) ជាមួយជួរថ្ងៃទាំងអស់ដើម្បីបំពេញថ្ងៃដែលខ្វះ
+                full_days = pd.DataFrame({'Day': all_days})
+                daily_report = pd.merge(full_days, daily_report, on='Day', how='left').fillna(0)
+
+                # គណនា Commission
+                daily_report['Commission'] = daily_report['total_lots'] * COMMISSION_PER_LOT
+                total_daily_com = daily_report['Commission'].sum()
+
+                st.metric("💵 ចំណូលកម្រៃជើងសារសរុប", f"${total_daily_com:,.2f}")
+                st.write("")
+
+                col_d1, col_d2 = st.columns([1.5, 2])
+                with col_d1:
+                    st.markdown("#### 📊 តារាងចំណូលប្រចាំថ្ងៃ")
+                    df_d = daily_report.copy()
+                    df_d['កាលបរិច្ឆេទ'] = df_d['Day'].dt.strftime('%Y-%m-%d')
+                    df_d = df_d[['កាលបរិច្ឆេទ', 'total_lots', 'Commission']]
+                    df_d.columns = ['កាលបរិច្ឆេទ', 'ឡូត៍សរុប', 'ចំណូលសរុប ($)']
+
+                    df_display = df_d.copy()
+                    df_display['ចំណូលសរុប ($)'] = df_display['ចំណូលសរុប ($)'].apply(lambda x: f"${x:,.2f}")
+                    st.dataframe(df_display, use_container_width=True, hide_index=True)
+                with col_d2:
+                    st.markdown("#### 📈 ក្រាហ្វចំណូលប្រចាំថ្ងៃ")
+                    st.bar_chart(daily_report.set_index('Day')['Commission'], color="#00FFA3")
+            else:
+                st.info("មិនទាន់មានទិន្នន័យដើម្បីបង្ហាញ។")
 
         with rep_tab2:
             monthly_report = daily_max_df.groupby('Month')['total_lots'].sum().reset_index()
